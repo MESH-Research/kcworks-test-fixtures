@@ -1,7 +1,7 @@
-# Part of the Invenio-Stats-Dashboard extension for InvenioRDM
-# Copyright (C) 2025 Mesh Research
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2024-2025, MESH Research
 #
-# Invenio-Stats-Dashboard is free software; you can redistribute it and/or modify
+# This code is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 """Pytest fixtures for community events."""

@@ -1,8 +1,8 @@
-# Part of Knowledge Commons Works
+# Part of KCWorks Test Fixtures
 #
 # Copyright (C) 2025 MESH Research.
 #
-# Knowledge Commons Works is free software; you can redistribute it and/or modify
+# KCWorks Test Fixtures is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 """Search provisioning related pytest fixtures for testing."""
@@ -10,6 +10,14 @@
 import arrow
 import pytest
 from celery import shared_task
+
+# Try to import the provisioner to detect if it's available
+try:
+    import invenio_remote_api_provisioner  # noqa: F401
+
+    PROVISIONER_AVAILABLE = True
+except ImportError:
+    PROVISIONER_AVAILABLE = False
 
 
 @shared_task(bind=True)
@@ -33,7 +41,7 @@ def mock_send_remote_api_update(
     """Mock the send_remote_api_update task.
 
     Returns:
-        None: This is a mock function that doesn't return anything.
+        tuple: A tuple of (response_text, callback_result) to match the real function.
     """
     record = record or {}
     if service_type == "rdm_record" and service_method == "publish":
@@ -49,11 +57,18 @@ def mock_send_remote_api_update(
 
 @pytest.fixture
 def mock_send_remote_api_update_fixture(mocker):
-    """Mock the sending of remote API updates."""
-    mocker.patch(
-        "invenio_remote_api_provisioner.components.send_remote_api_update",  # noqa: E501
-        mock_send_remote_api_update,
-    )
+    """Mock the sending of remote API updates.
+    
+    This fixture is context-aware:
+    - If invenio_remote_api_provisioner is available, it patches the actual function
+    - If not available, it's a no-op (for contexts where the dependency doesn't exist)
+    """
+    if PROVISIONER_AVAILABLE:
+        mocker.patch(
+            "invenio_remote_api_provisioner.components.send_remote_api_update",  # noqa: E501
+            mock_send_remote_api_update,
+        )
+    # If provisioner is not available, this is a no-op fixture
 
 
 @pytest.fixture

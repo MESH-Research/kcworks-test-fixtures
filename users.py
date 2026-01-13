@@ -1,14 +1,14 @@
-# Part of Knowledge Commons Works
+# Part of KCWorks Test Fixtures
 #
 # Copyright (C) 2025 MESH Research.
 #
-# Knowledge Commons Works is free software; you can redistribute it and/or modify
+# KCWorks Test Fixtures is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 """User related pytest fixtures for testing."""
 
 from collections.abc import Callable
-from copy import deepcopy
+from typing import Any
 
 import pytest
 from flask import current_app
@@ -57,121 +57,186 @@ def anon_identity():
 
 
 @pytest.fixture(scope="function")
-def mock_user_data_api(requests_mock) -> Callable:
+def mock_user_data_api(requests_mock, app) -> Callable:
     """Mock the user data api.
+
+    This fixture is context-aware:
+    - If IDMS_BASE_API_URL config exists, uses main project's complete implementation
+    - Otherwise, returns a no-op function for contexts without IDMS (e.g.,
+      stats-dashboard)
 
     Returns:
         Callable: Mock API call function.
     """
+    # Check if IDMS config is available
+    try:
+        with app.app_context():
+            base_url = current_app.config.get("IDMS_BASE_API_URL")
+            has_idms = bool(base_url)
+    except (RuntimeError, AttributeError):
+        has_idms = False
 
-    def mock_api_call(
-        kc_username: str,
-        oauth_id: str,
-        mock_remote_data_subs: dict,
-        mock_remote_data_members: dict,
-    ) -> tuple[Matcher, Matcher]:
-        base_url = current_app.config.get("IDMS_BASE_API_URL")
+    if has_idms:
+        # Main project's complete implementation with two endpoints
+        def mock_api_call(
+            kc_username: str,
+            oauth_id: str,
+            mock_remote_data_subs: dict,
+            mock_remote_data_members: dict,
+        ) -> tuple[Matcher | None, Matcher | None]:
+            base_url = current_app.config.get("IDMS_BASE_API_URL")
 
-        mock_adapter_members = requests_mock.get(
-            f"{base_url}members/{kc_username}",
-            json=mock_remote_data_members,
-        )
-        mock_adapter_subs = requests_mock.get(
-            f"{base_url}subs/?sub={oauth_id}",
-            json=mock_remote_data_subs,
-        )
-        return mock_adapter_subs, mock_adapter_members
+            mock_adapter_members = requests_mock.get(
+                f"{base_url}members/{kc_username}",
+                json=mock_remote_data_members,
+            )
+            mock_adapter_subs = requests_mock.get(
+                f"{base_url}subs/?sub={oauth_id}",
+                json=mock_remote_data_subs,
+            )
+            return mock_adapter_subs, mock_adapter_members
 
-    return mock_api_call
+        return mock_api_call
+    else:
+        # No-op for contexts without IDMS (e.g., stats-dashboard)
+        def mock_api_call(
+            kc_username: str,
+            oauth_id: str,
+            mock_remote_data_subs: dict,
+            mock_remote_data_members: dict,
+        ) -> tuple[Matcher | None, Matcher | None]:
+            """No-op mock for contexts without IDMS.
+
+            Returns:
+                tuple: None values for contexts without IDMS.
+            """
+            return None, None
+
+        return mock_api_call
 
 
 @pytest.fixture(scope="function")
-def user_data_to_remote_data(requests_mock):
+def user_data_to_remote_data(requests_mock, app):
     """Factory fixture providing function to convert user data format.
+
+    This fixture is context-aware:
+    - If IDMS_BASE_API_URL config exists, returns main project's complete implementation
+    - Otherwise, returns a no-op function for contexts without IDMS (e.g.,
+      stats-dashboard)
 
     Returns:
         function: Function to convert user data to remote data format.
     """
+    # Check if IDMS config is available
+    try:
+        with app.app_context():
+            base_url = current_app.config.get("IDMS_BASE_API_URL")
+            has_idms = bool(base_url)
+    except (RuntimeError, AttributeError):
+        has_idms = False
 
-    def convert_user_data_to_remote_data(
-        kc_username: str, email: str, user_data: dict, oauth_id: str = ""
-    ) -> tuple[
-        dict[str, str | list[dict[str, str]]], dict[str, str | list[dict[str, str]]]
-    ]:
-        """Convert user fixture data to format for remote data.
+    if has_idms:
+        # Main project's complete implementation with two formats
+        def convert_user_data_to_remote_data(
+            kc_username: str, email: str, user_data: dict, oauth_id: str = ""
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
+            """Convert user fixture data to format for remote data.
 
-        Returns:
-            tuple[dict, dict]: Returns two dictionaries with the same user data: [0] in
-                the shape returned from the "subs" endpoint and [1] in the shape
-                returned from the "members" endpoint.
-        """
-        if user_data.get("first_name", "") != "":
-            mock_remote_data = {
-                "data": [
-                    {
-                        "sub": oauth_id if oauth_id else user_data.get("oauth_id"),
-                        "profile": {
-                            "username": kc_username,
-                            "email": email,
-                            "name": user_data.get("name", ""),
-                            "first_name": user_data.get("first_name", ""),
-                            "last_name": user_data.get("last_name", ""),
-                            "institutional_affiliation": user_data.get(
-                                "institutional_affiliation", ""
-                            ),
-                            "orcid": user_data.get("orcid", ""),
-                            "preferred_language": user_data.get(
-                                "preferred_language", ""
-                            ),
-                            "time_zone": user_data.get("time_zone", ""),
-                            "groups": user_data.get("groups", ""),
-                            "memberships": [],
-                        },
-                        "idp_name": "Michigan State University",
-                    }
-                ],
-                "next": None,
-                "previous": None,
-                "meta": {"authorized": True},
-            }
-        else:
-            try:
-                profile = user_data.get("data", [])[0].get("profile", {})
-            except IndexError:
+            Returns:
+                tuple[dict, dict]: Returns two dictionaries with the same user data:
+                    [0] in the shape returned from the "subs" endpoint and [1] in
+                    the shape returned from the "members" endpoint.
+            """
+            if user_data.get("first_name", "") != "":
+                mock_remote_data = {
+                    "data": [
+                        {
+                            "sub": oauth_id if oauth_id else user_data.get("oauth_id"),
+                            "profile": {
+                                "username": kc_username,
+                                "email": email,
+                                "name": user_data.get("name", ""),
+                                "first_name": user_data.get("first_name", ""),
+                                "last_name": user_data.get("last_name", ""),
+                                "institutional_affiliation": user_data.get(
+                                    "institutional_affiliation", ""
+                                ),
+                                "orcid": user_data.get("orcid", ""),
+                                "preferred_language": user_data.get(
+                                    "preferred_language", ""
+                                ),
+                                "time_zone": user_data.get("time_zone", ""),
+                                "groups": user_data.get("groups", ""),
+                                "memberships": [],
+                            },
+                            "idp_name": "Michigan State University",
+                        }
+                    ],
+                    "next": None,
+                    "previous": None,
+                    "meta": {"authorized": True},
+                }
+            else:
+                try:
+                    profile = user_data.get("data", [])[0].get("profile", {})
+                except IndexError:
+                    profile = {}
+
+                mock_remote_data = {
+                    "data": [
+                        {
+                            "sub": "user1",
+                            "profile": {
+                                "username": oauth_id,
+                                "email": email,
+                                "name": profile.get("name", ""),
+                                "first_name": profile.get("first_name", ""),
+                                "last_name": profile.get("last_name", ""),
+                                "institutional_affiliation": profile.get(
+                                    "institutional_affiliation", ""
+                                ),
+                                "orcid": profile.get("orcid", ""),
+                                "preferred_language": profile.get(
+                                    "preferred_language", ""
+                                ),
+                                "time_zone": profile.get("time_zone", ""),
+                                "groups": profile.get("groups", []),
+                                "memberships": [],
+                            },
+                            "idp_name": "Michigan State University",
+                        }
+                    ],
+                    "next": None,
+                    "previous": None,
+                    "meta": {"authorized": True},
+                }
+
+            profile_data = mock_remote_data.get("data", [])
+            if (
+                profile_data
+                and isinstance(profile_data, list)
+                and len(profile_data) > 0
+            ):
+                profile = profile_data[0].get("profile", {})
+            else:
                 profile = {}
+            mock_remote_data_members = {"results": profile}
+            return mock_remote_data, mock_remote_data_members
 
-            mock_remote_data = {
-                "data": [
-                    {
-                        "sub": "user1",
-                        "profile": {
-                            "username": oauth_id,
-                            "email": email,
-                            "name": profile.get("name", ""),
-                            "first_name": profile.get("first_name", ""),
-                            "last_name": profile.get("last_name", ""),
-                            "institutional_affiliation": profile.get(
-                                "institutional_affiliation", ""
-                            ),
-                            "orcid": profile.get("orcid", ""),
-                            "preferred_language": profile.get("preferred_language", ""),
-                            "time_zone": profile.get("time_zone", ""),
-                            "groups": profile.get("groups", []),
-                            "memberships": [],
-                        },
-                        "idp_name": "Michigan State University",
-                    }
-                ],
-                "next": None,
-                "previous": None,
-                "meta": {"authorized": True},
-            }
+        return convert_user_data_to_remote_data
+    else:
+        # No-op for contexts without IDMS (e.g., stats-dashboard)
+        def convert_user_data_to_remote_data(
+            kc_username: str, email: str, user_data: dict, oauth_id: str = ""
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
+            """No-op converter for contexts without IDMS.
 
-        profile = mock_remote_data["data"][0]["profile"]
-        mock_remote_data_members = {"results": profile}
-        return mock_remote_data, mock_remote_data_members
+            Returns:
+                tuple[dict, dict]: Empty dictionaries for contexts without IDMS.
+            """
+            return {}, {}
 
-    return convert_user_data_to_remote_data
+        return convert_user_data_to_remote_data
 
 
 class AugmentedUserFixture(UserFixtureBase):
@@ -180,7 +245,8 @@ class AugmentedUserFixture(UserFixtureBase):
     def __init__(self, *args, **kwargs):
         """Initialize the AugmentedUserFixture."""
         super().__init__(*args, **kwargs)
-        self.mock_adapter: Matcher | None = None
+        self.mock_adapter_members: Matcher | None = None
+        self.mock_adapter_subs: Matcher | None = None
         self.allowed_token: str | None = None
 
 
@@ -232,17 +298,34 @@ def user_factory(
         """
         new_remote_data = new_remote_data or {}
 
-        # Mock remote data that's already in the user fixture.
-        mock_remote_data_subs, mock_remote_data_members = user_data_to_remote_data(
-            kc_username,
-            new_remote_data.get("email") or email,
-            new_remote_data,
-            oauth_id,
-        )
-        # Mock the remote api call.
-        mock_adapter_subs, mock_adapter_members = mock_user_data_api(
-            kc_username, oauth_id, mock_remote_data_subs, mock_remote_data_members
-        )
+        # Check if IDMS config is available to determine which format to use
+        try:
+            with app.app_context():
+                base_url = current_app.config.get("IDMS_BASE_API_URL")
+                has_idms = bool(base_url)
+        except (RuntimeError, AttributeError):
+            has_idms = False
+
+        # Mock remote data that's already in the user fixture (only if IDMS available)
+        if has_idms:
+            # Main project's complete implementation with two endpoints
+            mock_remote_data_subs, mock_remote_data_members = user_data_to_remote_data(
+                kc_username or oauth_id or "",
+                new_remote_data.get("email") or email,
+                new_remote_data,
+                oauth_id,
+            )
+            # Mock the remote api call.
+            mock_adapter_subs, mock_adapter_members = mock_user_data_api(
+                kc_username or oauth_id or "",
+                oauth_id or "",
+                mock_remote_data_subs,
+                mock_remote_data_members,
+            )
+        else:
+            # No-op for contexts without IDMS (e.g., stats-dashboard)
+            mock_adapter_subs = None
+            mock_adapter_members = None
 
         if not orcid and new_remote_data.get("orcid"):
             orcid = new_remote_data.get("orcid")
@@ -278,10 +361,16 @@ def user_factory(
             u.user.user_profile = profile
 
         if u.user and oauth_src and oauth_id:
-            u.user.username = f"knowledgeCommons-{oauth_id}"
-            UserIdentity.create(u.user, oauth_src, oauth_id)
-            u.mock_adapter_members = mock_adapter_members
-            u.mock_adapter_subs = mock_adapter_subs
+            if has_idms:
+                # Main project's complete OAuth setup
+                u.user.username = f"knowledgeCommons-{oauth_id}"
+                u.mock_adapter_members = mock_adapter_members
+                u.mock_adapter_subs = mock_adapter_subs
+                UserIdentity.create(u.user, oauth_src, oauth_id)
+            else:
+                # Minimal setup for contexts without IDMS (e.g., stats-dashboard)
+                u.user.username = f"test-{email.split('@')[0]}"
+                # OAuth-related attributes remain None (no-op)
 
         u.user.mock = True
 
@@ -600,7 +689,7 @@ def client_with_login(requests_mock, app):
             user: The user to log in.
 
         Returns:
-            None: This function doesn't return anything.
+            FlaskClient: The client with the user logged in.
         """
         login_user(user)
         login_user_via_session(client, email=user.email)

@@ -1,8 +1,8 @@
-# Part of Knowledge Commons Works
-# Copyright (C) 2024-2025 MESH Research
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2024-2025, MESH Research
 #
-# KCWorks is free software; you can redistribute it and/or modify it
-# under the terms of the MIT License; see LICENSE file for more details.
+# This code is free software; you can redistribute it and/or modify
+# it under the terms of the MIT License; see LICENSE file for more details.
 
 """Pytest fixtures for caching-related tests."""
 

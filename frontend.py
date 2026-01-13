@@ -1,7 +1,7 @@
-# Part of the Invenio-Stats-Dashboard extension for InvenioRDM
-# Copyright (C) 2025 MESH Research
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2024-2025, MESH Research
 #
-# Invenio-Stats-Dashboard is free software; you can redistribute it and/or modify
+# This code is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 """Pytest fixtures for frontend."""
@@ -20,7 +20,7 @@ class MockJinjaManifest(JinjaManifest):
         """Get a manifest entry.
 
         Returns:
-            JinjaManifestEntry: The manifest entry.
+            JinjaManifestEntry: A manifest entry for the given key.
         """
         return JinjaManifestEntry(key, [key])
 
@@ -28,7 +28,7 @@ class MockJinjaManifest(JinjaManifest):
         """Get a manifest entry.
 
         Returns:
-            JinjaManifestEntry: The manifest entry.
+            JinjaManifestEntry: A manifest entry for the given name.
         """
         return JinjaManifestEntry(name, [name])
 
@@ -40,6 +40,6 @@ class MockManifestLoader(JinjaManifestLoader):
         """Load the manifest.
 
         Returns:
-            MockJinjaManifest: A mock manifest object.
+            MockJinjaManifest: A mocked manifest instance.
         """
         return MockJinjaManifest()

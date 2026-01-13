@@ -1,3 +1,9 @@
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2023-2025, MESH Research
+#
+# This code is free software; you can redistribute it and/or modify
+# it under the terms of the MIT License; see LICENSE file for more details.
+
 """Metadata fields for KCWorks.
 
 kcr:commons_domain      The commons domain from which the record was deposited.

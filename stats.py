@@ -1,17 +1,9 @@
-# Part of Knowledge Commons Works
-# Copyright (C) 2024-2025 MESH Research
+# Part of KCWorks Test Fixtures
 #
-# KCWorks is free software; you can redistribute it and/or modify it
-# under the terms of the MIT License; see LICENSE file for more details.
+# Copyright (C) 2025 MESH Research.
 #
-# KCWorks is an extended instance of InvenioRDM:
-# Copyright (C) 2019-2024 CERN.
-# Copyright (C) 2019-2024 Northwestern University.
-# Copyright (C) 2021-2024 TU Wien.
-# Copyright (C) 2023-2024 Graz University of Technology.
-# InvenioRDM is also free software; you can redistribute it and/or modify it
-# under the terms of the MIT License. See the LICENSE file in the
-# invenio-app-rdm package for more details.
+# KCWorks Test Fixtures is free software; you can redistribute it and/or modify
+# it under the terms of the MIT License; see LICENSE file for more details.
 
 """Fixtures for stats."""
 
@@ -30,9 +22,16 @@ from invenio_stats.contrib.event_builders import build_file_unique_id
 from invenio_stats.processors import EventsIndexer, anonymize_user, flag_robots
 from invenio_stats.queries import TermsQuery
 
-from invenio_record_importer_kcworks.services.stats.aggregations import (
-    StatAggregatorOverridable,
-)
+# Try to import StatAggregatorOverridable if available, otherwise use StatAggregator
+try:
+    from invenio_record_importer_kcworks.services.stats.aggregations import (
+        StatAggregatorOverridable,
+    )
+
+    StatAggregator = StatAggregatorOverridable
+except ImportError:
+    from invenio_stats.aggregations import StatAggregator
+
 from invenio_stats_dashboard.aggregations import (
     register_aggregations as register_community_aggregations,
 )
@@ -108,12 +107,32 @@ test_config_stats["STATS_EVENTS"] = {
 
 # This STATS_AGGREGATIONS config is only used in packages that don't have
 # access to the KCWorks invenio.cfg
+# Try to use kcworks template path if available, otherwise use dashboard path
+try:
+    import kcworks.services.search.index_templates.stats.aggr_file_download  # noqa: F401
+
+    file_download_template = (
+        "kcworks.services.search.index_templates.stats.aggr_file_download"
+    )
+    record_view_template = (
+        "kcworks.services.search.index_templates.stats.aggr_record_view"
+    )
+except ImportError:
+    file_download_template = (
+        "invenio_stats_dashboard.search_indices.search_templates."
+        "aggr_file_download"
+    )
+    record_view_template = (
+        "invenio_stats_dashboard.search_indices.search_templates."
+        "aggr_record_view"
+    )
+
 test_config_stats["STATS_AGGREGATIONS"] = {
     "file-download-agg": {
-        "templates": "kcworks.services.search.index_templates.stats.aggr_file_download",
+        "templates": file_download_template,
         # "templates": "invenio_rdm_records.records.stats.templates."
         # "aggregations.aggr_file_download",
-        "cls": StatAggregatorOverridable,
+        "cls": StatAggregator,
         "params": {
             "event": "file-download",
             "field": "unique_id",
@@ -137,10 +156,10 @@ test_config_stats["STATS_AGGREGATIONS"] = {
         },
     },
     "record-view-agg": {
-        "templates": "kcworks.services.search.index_templates.stats.aggr_record_view",
+        "templates": record_view_template,
         # "templates": "invenio_rdm_records.records.stats.templates."
         # "aggregations.aggr_record_view",
-        "cls": StatAggregatorOverridable,
+        "cls": StatAggregator,
         "params": {
             "event": "record-view",
             "field": "unique_id",

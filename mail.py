@@ -1,3 +1,9 @@
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2024-2025, MESH Research
+#
+# This code is free software; you can redistribute it and/or modify
+# it under the terms of the MIT License; see LICENSE file for more details.
+
 """Fixtures for mail-related testing."""
 
 import pytest

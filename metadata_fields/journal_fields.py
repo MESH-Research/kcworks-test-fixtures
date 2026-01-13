@@ -1,15 +1,16 @@
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2023-2025, MESH Research
 #
-# Copyright (C) 2023 CERN.
-#
-# Invenio-RDM-Records is free software; you can redistribute it and/or modify
+# This code is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
-"""Journal custom fields UI configuration.
+"""Metadata field UI configuration for journal.
 
 Implements UI configuration for the following fields:
 - journal.issue
 - journal.pages
 - journal.title
 - journal.volume
+- journal.issn
 """
 
 from invenio_i18n import lazy_gettext as _

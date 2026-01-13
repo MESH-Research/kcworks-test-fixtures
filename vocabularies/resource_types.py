@@ -1,9 +1,8 @@
-# Part of Knowledge Commons Works
-# Copyright (C) 2023-2024, MESH Research
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2023-2025, MESH Research
 #
-# Knowledge Commons Works is free software; you can redistribute it and/or
-# modify it under the terms of the MIT License; see LICENSE file for more
-# details.
+# This code is free software; you can redistribute it and/or modify
+# it under the terms of the MIT License; see LICENSE file for more details.
 
 """Resource type vocabulary fixtures."""
 
@@ -288,7 +287,7 @@ def resource_types():
     """Fixture to create the resource type vocabulary.
 
     Returns:
-        dict: Resource types vocabulary data.
+        dict: A deep copy of the RESOURCE_TYPES dictionary.
     """
     return copy.deepcopy(RESOURCE_TYPES)
 

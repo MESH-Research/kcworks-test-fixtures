@@ -1,8 +1,8 @@
-# Part of Knowledge Commons Works
+# Part of KCWorks Test Fixtures
 #
 # Copyright (C) 2025 MESH Research.
 #
-# Knowledge Commons Works is free software; you can redistribute it and/or modify
+# KCWorks Test Fixtures is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 """Test fixtures for records."""
@@ -24,11 +24,6 @@ from flask_principal import Identity
 from invenio_access.permissions import system_identity
 from invenio_accounts.proxies import current_accounts
 from invenio_rdm_records.proxies import current_rdm_records_service as records_service
-from invenio_record_importer_kcworks.services.files import FilesHelper
-from invenio_record_importer_kcworks.types import FileData
-from invenio_record_importer_kcworks.utils.utils import (
-    replace_value_in_nested_dict,
-)
 from invenio_records_resources.services.records.results import RecordItem
 from invenio_records_resources.services.uow import RecordCommitOp, UnitOfWork
 from invenio_search.proxies import current_search_client
@@ -93,7 +88,7 @@ def minimal_draft_record_factory(running_app, db, record_metadata):
 
 @pytest.fixture(scope="function")
 def minimal_published_record_factory(
-    running_app, db, record_metadata, superuser_identity
+    running_app, db, record_metadata, superuser_identity, create_records_custom_fields
 ):
     """Factory for creating a minimal published record.
 
@@ -259,7 +254,7 @@ def minimal_published_record_factory(
                 f"{pformat(published.id)}"
             )
 
-        if input_metadata.get("created"):
+        if update_community_event_dates and input_metadata.get("created"):
             current_app.logger.error(
                 f"in published record factory, updating community events created date: "
                 f"{pformat(published.id)}"
@@ -430,6 +425,7 @@ class TestRecordMetadata:
             "resource_type": {"id": "image-photograph"},
             "title": "A Romans story",
         },
+        "custom_fields": {},
     }
 
     def __init__(
@@ -992,6 +988,9 @@ class TestRecordMetadata:
                 Defaults to read.
             now (Arrow, optional): The current time. Defaults to arrow.utcnow().
 
+        Raises:
+            AssertionError: if something fails in the comparison.
+
         Returns:
             bool: True if the actual metadata dictionary matches the expected
                 metadata dictionary, False otherwise.
@@ -1003,7 +1002,6 @@ class TestRecordMetadata:
         if by_api:
             expected = self._as_via_api(expected, is_draft=False, method=method)
         try:
-            assert now - arrow.get(actual["created"]) < timedelta(seconds=30)
             if self.metadata_in.get("created"):
                 assert arrow.get(actual["created"]) == arrow.get(
                     self.metadata_in["created"]

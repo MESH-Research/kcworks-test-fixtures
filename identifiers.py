@@ -1,10 +1,12 @@
-# Part of the Invenio-Stats-Dashboard extension for InvenioRDM
-# Copyright (C) 2025 MESH Research
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2024-2025, MESH Research
 #
-# Invenio-Stats-Dashboard is free software; you can redistribute it and/or modify
+# This code is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 """Pytest fixtures for identifiers."""
+
+from pathlib import Path
 
 import idutils
 from invenio_rdm_records.config import (
@@ -14,14 +16,18 @@ from invenio_rdm_records.config import (
 )
 from invenio_rdm_records.services.pids import providers
 
-from tests.helpers.fake_datacite_client import FakeDataCiteClient
+from ..helpers.fake_datacite_client import FakeDataCiteClient
+
+# Detect if we're running from a generic context (e.g., stats-dashboard)
+# If the file path contains "invenio-stats-dashboard", exclude KCWorks custom schemes
+_IS_GENERIC_CONTEXT = "invenio-stats-dashboard" in str(Path(__file__).resolve())
 
 
 def is_email(value):
     """Simple email validation function.
 
     Returns:
-        bool: True if value is a valid email, False otherwise.
+        bool: True if the value is a valid email address, False otherwise.
     """
     import re
 
@@ -33,7 +39,7 @@ def _(x):
     """Identity function for string extraction.
 
     Returns:
-        str: The input string unchanged.
+        Any: The input value unchanged.
     """
     return x
 
@@ -155,23 +161,6 @@ test_config_identifiers = {
             "validator": always_valid,
             "datacite": "Other",
         },
-        # KCWorks custom identifier schemes
-        "hclegacy-pid": {
-            "label": _("Humanities Commons Legacy PID"),
-            "validator": always_valid,
-            "datacite": "Other",
-        },
-        "hclegacy-record-id": {
-            "label": _("Humanities Commons Legacy Record ID"),
-            "validator": always_valid,
-            "datacite": "Other",
-        },
-        # Import schemes
-        "import-recid": {
-            "label": _("Import record ID"),
-            "validator": always_valid,
-            "datacite": "Other",
-        },
     },
     "RDM_RECORDS_PERSONORG_SCHEMES": {
         **RDM_RECORDS_PERSONORG_SCHEMES,
@@ -183,12 +172,6 @@ test_config_identifiers = {
         "email": {
             "label": _("Email"),
             "validator": is_email,
-            "datacite": "Other",
-        },
-        # KCWorks custom person/org identifier schemes
-        "hc_username": {
-            "label": _("KC member"),
-            "validator": always_valid,
             "datacite": "Other",
         },
     },
@@ -206,3 +189,33 @@ test_config_identifiers = {
         },
     },
 }
+
+# KCWorks custom identifier schemes (excluded for generic contexts)
+if not _IS_GENERIC_CONTEXT:
+    test_config_identifiers["RDM_RECORDS_IDENTIFIERS_SCHEMES"].update({
+        # KCWorks custom identifier schemes
+        "hclegacy-pid": {
+            "label": _("Humanities Commons Legacy PID"),
+            "validator": always_valid,
+            "datacite": "Other",
+        },
+        "hclegacy-record-id": {
+            "label": _("Humanities Commons Legacy Record ID"),
+            "validator": always_valid,
+            "datacite": "Other",
+        },
+        # Import schemes
+        "import-recid": {
+            "label": _("Import record ID"),
+            "validator": always_valid,
+            "datacite": "Other",
+        },
+    })
+    # KCWorks custom person/org identifier schemes
+    test_config_identifiers["RDM_RECORDS_PERSONORG_SCHEMES"].update({
+        "hc_username": {
+            "label": _("KC member"),
+            "validator": always_valid,
+            "datacite": "Other",
+        },
+    })
