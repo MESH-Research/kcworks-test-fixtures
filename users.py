@@ -26,6 +26,7 @@ from invenio_accounts.models import User
 from invenio_accounts.proxies import current_accounts
 from invenio_accounts.testutils import login_user_via_session
 from invenio_administration.permissions import administration_access_action
+from invenio_db import db
 from invenio_oauth2server.models import Token
 from invenio_oauthclient.models import UserIdentity
 from pytest_invenio.fixtures import UserFixtureBase
@@ -253,7 +254,6 @@ class AugmentedUserFixture(UserFixtureBase):
 @pytest.fixture(scope="function")
 def user_factory(
     app,
-    db,
     admin_role_need,
     requests_mock,
     mock_user_data_api,
@@ -375,7 +375,7 @@ def user_factory(
         u.user.mock = True
 
         current_accounts.datastore.commit()
-        db.session.commit()
+        # db.session.commit()
 
         return u
 

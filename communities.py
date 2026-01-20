@@ -21,6 +21,7 @@ from invenio_access.utils import get_identity
 from invenio_accounts.proxies import current_accounts
 from invenio_communities.communities.records.api import Community
 from invenio_communities.proxies import current_communities
+from invenio_db import db
 from invenio_rdm_records.proxies import current_rdm_records, current_rdm_records_service
 from invenio_rdm_records.records.api import RDMRecord
 from invenio_rdm_records.utils import get_or_create_user
@@ -28,6 +29,7 @@ from invenio_records_resources.services.uow import RecordCommitOp, UnitOfWork
 from invenio_requests.proxies import current_requests_service
 from invenio_search.proxies import current_search_client
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import object_session
 
 
 def add_community_to_record(
@@ -244,7 +246,6 @@ def group_communities_data_factory():
 @pytest.fixture(scope="function")
 def minimal_community_factory(
     app,
-    db,
     user_factory,
     create_communities_custom_fields,
     requests_mock,
@@ -382,9 +383,10 @@ def minimal_community_factory(
                 )
         Community.index.refresh()
 
-        return current_communities.service.read(
+        return_item = current_communities.service.read(
             identity=system_identity, id_=community_id
         )
+        return return_item
 
     return create_minimal_community
 
