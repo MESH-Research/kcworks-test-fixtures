@@ -29,7 +29,6 @@ from invenio_records_resources.services.uow import RecordCommitOp, UnitOfWork
 from invenio_requests.proxies import current_requests_service
 from invenio_search.proxies import current_search_client
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import object_session
 
 
 def add_community_to_record(

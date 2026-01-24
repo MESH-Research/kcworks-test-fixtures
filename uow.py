@@ -4,6 +4,8 @@
 # kcworks-test-fixtures is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
 
+"""Pytest fixtures for dealing with UnitOfWork operations."""
+
 import pytest
 from invenio_records_resources.services.uow import UnitOfWork as OriginalUoW
 from sqlalchemy.exc import InvalidRequestError, ResourceClosedError
