@@ -16,7 +16,7 @@ from invenio_rdm_records.config import (
 )
 from invenio_rdm_records.services.pids import providers
 
-from ..helpers.fake_datacite_client import FakeDataCiteClient
+from .fake_datacite_client import FakeDataCiteClient
 
 # Detect if we're running from a generic context (e.g., stats-dashboard)
 # If the file path contains "invenio-stats-dashboard", exclude KCWorks custom schemes
