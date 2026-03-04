@@ -534,7 +534,7 @@ class TestRecordMetadata:
             "requests": f"{base_url}/records/{record_id}/requests",
         }
         if doi:
-            links["doi"] = f"https://handle.stage.datacite.org/{doi}"
+            links["doi"] = f"https://handle.test.datacite.org/{doi}"
         return links
 
     @staticmethod
@@ -558,7 +558,7 @@ class TestRecordMetadata:
         )
         links["archive"] = f"{base_url}/records/{record_id}/files-archive"
         links["archive_media"] = f"{base_url}/records/{record_id}/media-files-archive"
-        links["doi"] = f"https://handle.stage.datacite.org/{record_doi}"
+        links["doi"] = f"https://handle.test.datacite.org/{record_doi}"
         links["draft"] = f"{base_url}/records/{record_id}/draft"
         links["files"] = f"{base_url}/records/{record_id}/files"
         links["latest"] = f"{base_url}/records/{record_id}/versions/latest"
