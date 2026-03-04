@@ -8,6 +8,7 @@
 """User related pytest fixtures for testing."""
 
 from collections.abc import Callable
+from pprint import pformat
 from typing import Any
 
 import pytest
@@ -188,7 +189,7 @@ def user_data_to_remote_data(requests_mock, app):
                         {
                             "sub": "user1",
                             "profile": {
-                                "username": oauth_id,
+                                "username": profile.get("username", kc_username),
                                 "email": email,
                                 "name": profile.get("name", ""),
                                 "first_name": profile.get("first_name", ""),
@@ -363,7 +364,7 @@ def user_factory(
         if u.user and oauth_src and oauth_id:
             if has_idms:
                 # Main project's complete OAuth setup
-                u.user.username = f"knowledgeCommons-{oauth_id}"
+                u.user.username = f"knowledgeCommons-{kc_username}"
                 u.mock_adapter_members = mock_adapter_members
                 u.mock_adapter_subs = mock_adapter_subs
                 UserIdentity.create(u.user, oauth_src, oauth_id)
@@ -375,7 +376,6 @@ def user_factory(
         u.user.mock = True
 
         current_accounts.datastore.commit()
-        # db.session.commit()
 
         return u
 
@@ -416,8 +416,9 @@ def admin(user_factory) -> AugmentedUserFixture:
         password="password",
         admin=True,
         token=True,
-        oauth_src="knowledgeCommons",
-        oauth_id="admin",
+        oauth_src=None,
+        oauth_id=None,
+        kc_username=None,
     )
 
     return u
