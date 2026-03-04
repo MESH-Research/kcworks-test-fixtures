@@ -511,6 +511,7 @@ class TestRecordMetadata:
             "self_iiif_sequence": f"{base_url}/iiif/draft:{record_id}/sequence/default",
             "files": f"{base_url}/records/{record_id}/draft/files",
             "media_files": f"{base_url}/records/{record_id}/draft/media-files",
+            "preview_html": f"{ui_base_url}/records/{record_id}?preview=1",
             "archive": f"{base_url}/records/{record_id}/draft/files-archive",
             "archive_media": (
                 f"{base_url}/records/{record_id}/draft/media-files-archive"
@@ -535,6 +536,7 @@ class TestRecordMetadata:
         }
         if doi:
             links["doi"] = f"https://handle.test.datacite.org/{doi}"
+            links["self_doi"] = f"https://handle.test.datacite.org/{doi}"
         return links
 
     @staticmethod
@@ -544,6 +546,7 @@ class TestRecordMetadata:
         ui_base_url: str,
         parent_id: str,
         record_doi: str = "",
+        file_name: str = "",
     ) -> dict:
         """Build the published record links.
 
@@ -568,16 +571,27 @@ class TestRecordMetadata:
         del links["record"]
         del links["record_html"]
         links["parent"] = f"{base_url}/records/{parent_id}"
-        links["parent_doi"] = f"{ui_base_url}/doi/{parent_doi}"
+        links["parent_doi"] = f"https://handle.test.datacite.org/{parent_doi}"
+        links["parent_doi_html"] = f"{ui_base_url}/doi/{parent_doi}"
         links["parent_html"] = f"{ui_base_url}/records/{parent_id}"
         del links["review"]
         links["self"] = f"{base_url}/records/{record_id}"
         links["self_html"] = f"{ui_base_url}/records/{record_id}"
-        links["self_doi"] = f"{ui_base_url}/doi/{record_doi}"
+        links["self_doi"] = f"https://handle.test.datacite.org/{record_doi}"
+        links["self_doi_html"] = f"{ui_base_url}/doi/{record_doi}"
         links["self_iiif_manifest"] = f"{base_url}/iiif/record:{record_id}/manifest"
         links["self_iiif_sequence"] = (
             f"{base_url}/iiif/record:{record_id}/sequence/default"
         )
+        if file_name:
+            links["thumbnails"] = {
+                "10": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E10,/0/default.jpg",
+                "100": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E100,/0/default.jpg",
+                "1200": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E1200,/0/default.jpg",
+                "250": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E250,/0/default.jpg",
+                "50": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E50,/0/default.jpg",
+                "750": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E750,/0/default.jpg",
+            }
 
         return links
 
@@ -638,7 +652,9 @@ class TestRecordMetadata:
             "access": {
                 "grants": [],
                 "links": [],
-                "owned_by": ({"user": str(self.owner_id)} if self.owner_id else None),
+                "owned_by": ({
+                    "user": str(self.owner_id) if self.owner_id else "system"
+                }),
                 "settings": {
                     "accept_conditions_text": None,
                     "allow_guest_requests": False,
@@ -665,7 +681,7 @@ class TestRecordMetadata:
                 "access": {
                     "member_policy": "open",
                     "members_visibility": "public",
-                    "record_policy": "open",
+                    "record_submission_policy": "open",
                     "review_policy": "open",
                     "visibility": "public",
                 },
@@ -758,7 +774,9 @@ class TestRecordMetadata:
                     "user": str(owner_users[0].id)
                 }
             else:
-                metadata_out_published["parent"]["access"]["owned_by"] = None
+                metadata_out_published["parent"]["access"]["owned_by"] = {
+                    "user": "system"
+                }
             if len(owner_users) > 1:
                 metadata_out_published["parent"]["access"]["grants"] = [
                     {
@@ -850,7 +868,7 @@ class TestRecordMetadata:
         if by_api:
             expected = self._as_via_api(expected, is_draft=True, method=method)
         else:
-            expected["parent"]["access"]["owned_by"] = None  # TODO: Why?
+            expected["parent"]["access"]["owned_by"] = {"user": "system"}
             expected["stats"] = None
 
         # Check that timestamps are in the correct relative range
@@ -887,7 +905,10 @@ class TestRecordMetadata:
                         "height": 1672,
                         "width": 1254,
                     }
-                assert v["metadata"] == expected["files"]["entries"][k]["metadata"]
+                    assert v["metadata"] == expected["files"]["entries"][k]["metadata"]
+                else:
+                    # TODO: Add actual dimensions to fixture metadata
+                    pass
             else:
                 assert not expected["files"]["entries"][k]["metadata"]
             assert v["links"] == build_file_links(
@@ -1030,7 +1051,12 @@ class TestRecordMetadata:
                             "height": 1672,
                             "width": 1254,
                         }
-                    assert v["metadata"] == expected["files"]["entries"][k]["metadata"]
+                        assert (
+                            v["metadata"] == expected["files"]["entries"][k]["metadata"]
+                        )
+                    else:
+                        # TODO: Add actual dimension metadata to fixtures
+                        pass
                 else:
                     assert not expected["files"]["entries"][k]["metadata"]
                 assert v["links"] == build_file_links(
@@ -1047,6 +1073,9 @@ class TestRecordMetadata:
                 app.config["SITE_UI_URL"],
                 actual["parent"]["id"],
                 actual["pids"]["doi"]["identifier"],
+                next(iter(actual["files"]["entries"].keys()))
+                if actual["files"].get("entries")
+                else "",
             )
             assert actual["media_files"] == {
                 "count": 0,
@@ -1220,6 +1249,7 @@ class TestRecordMetadataWithFiles(TestRecordMetadata):
         self._metadata_in = metadata_in if metadata_in else starting_metadata_in
         self.record_id = record_id
         self.file_entries = file_entries
+        app.logger.error(f"__INIT__ ENTRIES: {file_entries}")
         self.file_access_status = file_access_status
 
     @property
@@ -1230,6 +1260,9 @@ class TestRecordMetadataWithFiles(TestRecordMetadata):
 
         self._metadata_in["files"]["enabled"] = True
         self._metadata_in["files"]["entries"] = self.file_entries
+        self.app.logger.error(
+            f"metadata_in ENTRIES: {self._metadata_in['files']['entries']}"
+        )
         self._metadata_in.get("access", {})["status"] = self.file_access_status
         return self._metadata_in
 

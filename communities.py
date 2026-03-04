@@ -127,7 +127,7 @@ def communities_links_factory():
             "rename": f"{base_url}/api/communities/{community_id}/rename",
             "requests": f"{base_url}/api/communities/{community_id}/requests",
             "self": f"{base_url}/api/communities/{community_id}",
-            "self_html": f"{base_url}/collections/{slug}",
+            "self_html": f"{base_url}/collections/{slug}/",
             "settings_html": f"{base_url}/collections/{slug}/settings",
         }
 
@@ -207,7 +207,7 @@ def group_communities_data_factory():
                     "access": {
                         "visibility": "public",
                         "member_policy": "open",
-                        "record_policy": "open",
+                        "record_submission_policy": "open",
                         "review_policy": "closed",
                         "members_visibility": "public",
                     },
@@ -323,7 +323,7 @@ def minimal_community_factory(
             "visibility": "public",
             "members_visibility": "public",
             "member_policy": "open",
-            "record_policy": "open",
+            "record_submission_policy": "open",
             "review_policy": "open",
         }
         access_data.update(access)
@@ -461,7 +461,7 @@ def sample_community_with_group_id(
         access={
             "visibility": "public",
             "member_policy": "open",
-            "record_policy": "open",
+            "record_submission_policy": "open",
         },
         custom_fields={
             "kcr:commons_group_id": "test-group-123",
