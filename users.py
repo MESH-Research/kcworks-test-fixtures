@@ -346,9 +346,7 @@ def user_factory(
 
         if admin:
             datastore = app.extensions["security"].datastore
-            _, role = datastore._prepare_role_modify_args(
-                u.user, "administration-access"
-            )
+            _, role = datastore._prepare_role_modify_args(u.user, "administration")
             datastore.add_role_to_user(u.user, role)
 
         if u.user and orcid:
@@ -394,8 +392,8 @@ def admin_role_need(db):
     Returns:
         Role: The created admin role.
     """
-    role = Role(name="administration-access")
-    db.session.add(role)
+    role = current_accounts.datastore.find_or_create_role(name="administration")
+    current_accounts.datastore.commit()
 
     action_role = ActionRoles.create(action=administration_access_action, role=role)
     db.session.add(action_role)
