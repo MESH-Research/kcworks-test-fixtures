@@ -28,9 +28,12 @@ from invenio_records_resources.services.records.results import RecordItem
 from invenio_records_resources.services.uow import RecordCommitOp, UnitOfWork
 from invenio_search.proxies import current_search_client
 
-from invenio_stats_dashboard.services.components.components import (
-    update_community_events_created_date,
-)
+try:
+    from invenio_stats_dashboard.services.components.components import (
+        update_community_events_created_date,
+    )
+except:
+    update_community_events_created_date = None
 
 from .communities import add_community_to_record
 from .files import build_file_links
