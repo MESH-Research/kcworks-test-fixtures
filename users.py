@@ -67,6 +67,12 @@ def mock_user_data_api(requests_mock, app) -> Callable:
     - Otherwise, returns a no-op function for contexts without IDMS (e.g.,
       stats-dashboard)
 
+    The mocker mocks the three different sub/user related Profiles IDMS endpoints,
+    providing the appropriate response shape from each.
+
+    The wrapped function returns three requests_mock adapters allowing us to track
+    calls to the mocked endpoints.
+
     Returns:
         Callable: Mock API call function.
     """
@@ -85,6 +91,7 @@ def mock_user_data_api(requests_mock, app) -> Callable:
             oauth_id: str,
             mock_remote_data_subs: dict,
             mock_remote_data_members: dict,
+            mock_remote_data_subs_username: dict,
         ) -> tuple[Matcher | None, Matcher | None]:
             base_url = current_app.config.get("IDMS_BASE_API_URL")
 
@@ -96,7 +103,11 @@ def mock_user_data_api(requests_mock, app) -> Callable:
                 f"{base_url}subs/?sub={oauth_id}",
                 json=mock_remote_data_subs,
             )
-            return mock_adapter_subs, mock_adapter_members
+            mock_adapter_subs_username = requests_mock.get(
+                f"{base_url}subs/{kc_username}/",
+                json=mock_remote_data_subs_username,
+            )
+            return mock_adapter_subs, mock_adapter_members, mock_adapter_subs_username
 
         return mock_api_call
     else:
@@ -145,85 +156,50 @@ def user_data_to_remote_data(requests_mock, app):
             """Convert user fixture data to format for remote data.
 
             Returns:
-                tuple[dict, dict]: Returns two dictionaries with the same user data:
-                    [0] in the shape returned from the "subs" endpoint and [1] in
-                    the shape returned from the "members" endpoint.
+                tuple[dict, dict, dict]: Returns three dictionaries with the same user data:
+                    [0] in the shape returned from the "subs" endpoint using the "sub" parameter,
+                    [1] in the shape returned from the "members" endpoint,
+                    [2] in the shape returned from the "subs" endpoint using the username as a path
+                      argument.
             """
-            if user_data.get("first_name", "") != "":
-                mock_remote_data = {
-                    "data": [
-                        {
-                            "sub": oauth_id if oauth_id else user_data.get("oauth_id"),
-                            "profile": {
-                                "username": kc_username,
-                                "email": email,
-                                "name": user_data.get("name", ""),
-                                "first_name": user_data.get("first_name", ""),
-                                "last_name": user_data.get("last_name", ""),
-                                "institutional_affiliation": user_data.get(
-                                    "institutional_affiliation", ""
-                                ),
-                                "orcid": user_data.get("orcid", ""),
-                                "preferred_language": user_data.get(
-                                    "preferred_language", ""
-                                ),
-                                "time_zone": user_data.get("time_zone", ""),
-                                "groups": user_data.get("groups", ""),
-                                "memberships": [],
-                            },
-                            "idp_name": "Michigan State University",
-                        }
-                    ],
-                    "next": None,
-                    "previous": None,
-                    "meta": {"authorized": True},
-                }
+            if hasattr(user_data, "data"):
+                profile_data = user_data["data"][0].get("profile", {})
             else:
-                try:
-                    profile = user_data.get("data", [])[0].get("profile", {})
-                except IndexError:
-                    profile = {}
+                profile_data = user_data
 
-                mock_remote_data = {
-                    "data": [
-                        {
-                            "sub": "user1",
-                            "profile": {
-                                "username": profile.get("username", kc_username),
-                                "email": email,
-                                "name": profile.get("name", ""),
-                                "first_name": profile.get("first_name", ""),
-                                "last_name": profile.get("last_name", ""),
-                                "institutional_affiliation": profile.get(
-                                    "institutional_affiliation", ""
-                                ),
-                                "orcid": profile.get("orcid", ""),
-                                "preferred_language": profile.get(
-                                    "preferred_language", ""
-                                ),
-                                "time_zone": profile.get("time_zone", ""),
-                                "groups": profile.get("groups", []),
-                                "memberships": [],
-                            },
-                            "idp_name": "Michigan State University",
-                        }
-                    ],
-                    "next": None,
-                    "previous": None,
-                    "meta": {"authorized": True},
-                }
+            mock_profile = {
+                "username": kc_username,
+                "email": email,
+                "name": profile_data.get("name", ""),
+                "first_name": profile_data.get("first_name", ""),
+                "last_name": profile_data.get("last_name", ""),
+                "institutional_affiliation": profile_data.get(
+                    "institutional_affiliation", ""
+                ),
+                "orcid": profile_data.get("orcid", ""),
+                "groups": profile_data.get("groups", ""),
+                "memberships": profile_data.get("memberships", []),
+                "is_superadmin": profile_data.get("is_superadmin", False),
+            }
 
-            profile_data = mock_remote_data.get("data", [])
-            if (
-                profile_data
-                and isinstance(profile_data, list)
-                and len(profile_data) > 0
-            ):
-                profile = profile_data[0].get("profile", {})
-            else:
-                profile = {}
-            mock_remote_data_members = {"results": profile}
-            return mock_remote_data, mock_remote_data_members
+            mock_remote_data = {
+                "data": [
+                    {
+                        "sub": oauth_id if oauth_id else profile_data.get("oauth_id"),
+                        "profile": mock_profile,
+                        "idp_name": "Michigan State University",
+                    },
+                ],
+                "next": None,
+                "previous": None,
+                "meta": {"authorized": True},
+            }
+
+            # NOTE: Currently we don't try to mock a user who has multiple idps
+            # (and so multiple subs) configured with cilogon, so we don't have
+            # multiple "data" list items at the subs/<username>/ endpoint. This
+            # makes the two subs endpoints identical. We may change this later.
+            return mock_remote_data, mock_profile, mock_remote_data
 
         return convert_user_data_to_remote_data
     else:
@@ -310,23 +286,29 @@ def user_factory(
         # Mock remote data that's already in the user fixture (only if IDMS available)
         if has_idms:
             # Main project's complete implementation with two endpoints
-            mock_remote_data_subs, mock_remote_data_members = user_data_to_remote_data(
-                kc_username or oauth_id or "",
-                new_remote_data.get("email") or email,
-                new_remote_data,
-                oauth_id,
+            mock_data_subs, mock_data_members, mock_data_subs_username = (
+                user_data_to_remote_data(
+                    kc_username or oauth_id or "",
+                    new_remote_data.get("email") or email,
+                    new_remote_data,
+                    oauth_id,
+                )
             )
             # Mock the remote api call.
-            mock_adapter_subs, mock_adapter_members = mock_user_data_api(
-                kc_username or oauth_id or "",
-                oauth_id or "",
-                mock_remote_data_subs,
-                mock_remote_data_members,
+            mock_adapter_subs, mock_adapter_members, mock_adapter_subs_username = (
+                mock_user_data_api(
+                    kc_username or oauth_id or "",
+                    oauth_id or "",
+                    mock_data_subs,
+                    mock_data_members,
+                    mock_data_subs_username,
+                )
             )
         else:
             # No-op for contexts without IDMS (e.g., stats-dashboard)
             mock_adapter_subs = None
             mock_adapter_members = None
+            mock_adapter_subs_username = None
 
         if not orcid and new_remote_data.get("orcid"):
             orcid = new_remote_data.get("orcid")
@@ -365,6 +347,7 @@ def user_factory(
                 u.user.username = f"knowledgeCommons-{kc_username}"
                 u.mock_adapter_members = mock_adapter_members
                 u.mock_adapter_subs = mock_adapter_subs
+                u.mock_adapter_subs_username = mock_adapter_subs_username
                 UserIdentity.create(u.user, oauth_src, oauth_id)
             else:
                 # Minimal setup for contexts without IDMS (e.g., stats-dashboard)
