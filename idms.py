@@ -45,8 +45,8 @@ IDMS_MEMBERS_RESPONSE = {
     "name": "Ghost Hc",
     "first_name": "Ghost",
     "last_name": "Hc",
-    "institutional_affiliation": null,
-    "orcid": "",
+    "institutional_affiliation": None,
+    "orcid": "0000-0002-1825-0097",
     "avatar": "https://www.gravatar.com/avatar/e8e059e46712e40575b50a784af4b1deb6a2ce13e113fc246b1a6af129107719?s=150",
     "academic_interests": [],
     "groups": [
@@ -58,7 +58,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1005320,
@@ -68,7 +68,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004939,
@@ -78,7 +78,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004940,
@@ -88,7 +88,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004941,
@@ -98,7 +98,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004942,
@@ -108,7 +108,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004943,
@@ -118,7 +118,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004944,
@@ -128,7 +128,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004945,
@@ -138,7 +138,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004946,
@@ -148,7 +148,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004947,
@@ -158,7 +158,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004948,
@@ -168,7 +168,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004949,
@@ -178,7 +178,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004950,
@@ -188,7 +188,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004951,
@@ -198,7 +198,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004952,
@@ -208,7 +208,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004953,
@@ -218,7 +218,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1005109,
@@ -228,7 +228,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1005319,
@@ -238,7 +238,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1005318,
@@ -248,7 +248,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004651,
@@ -258,7 +258,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "public",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004090,
@@ -268,7 +268,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004094,
@@ -278,7 +278,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004092,
@@ -288,7 +288,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004089,
@@ -298,7 +298,7 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "public",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
         {
             "id": 1004091,
@@ -308,11 +308,11 @@ IDMS_MEMBERS_RESPONSE = {
             "status": "hidden",
             "avatar": "",
             "inviter_id": 0,
-            "inviter": null,
+            "inviter": None,
         },
     ],
-    "memberships": {"MLA": false, "MSU": false, "ARLISNA": false, "UP": false},
-    "is_superadmin": false,
+    "memberships": {"MLA": False, "MSU": False, "ARLISNA": False, "UP": False},
+    "is_superadmin": False,
 }
 
 IDMS_SUBS_RESPONSE_USERNAME = {
@@ -323,9 +323,9 @@ IDMS_SUBS_RESPONSE_USERNAME = {
             "idp_name": "Gmail",
         }
     ],
-    "meta": {"authorized": true},
-    "next": null,
-    "previous": null,
+    "meta": {"authorized": True},
+    "next": None,
+    "previous": None,
 }
 
 IDMS_SUBS_RESPONSE_SUB = {
@@ -336,7 +336,7 @@ IDMS_SUBS_RESPONSE_SUB = {
             "idp_name": "Gmail",
         }
     ],
-    "meta": {"authorized": true},
-    "next": null,
-    "previous": null,
+    "meta": {"authorized": True},
+    "next": None,
+    "previous": None,
 }

@@ -1,0 +1,31 @@
+# Part of invenio-remote-user-data-kcworks
+# Copyright (C) 2023-2026, MESH Research
+#
+# invenio-remote-user-data-kcworks is free software; you can redistribute and/or modify it
+# under the terms of the MIT License; see LICENSE file for more details.
+
+"""Test fixtures related to the names vocabulary."""
+
+from pathlib import Path
+
+from invenio_i18n import lazy_gettext as _
+from invenio_rdm_records.config import always_valid
+from invenio_vocabularies.config import (
+    VOCABULARIES_NAMES_SCHEMES as _UPSTREAM_NAMES_SCHEMES,
+)
+
+# Detect if we're running from a generic context (e.g., stats-dashboard)
+# If the file path contains "invenio-stats-dashboard", exclude KCWorks custom schemes
+_IS_GENERIC_CONTEXT = "invenio-stats-dashboard" in str(Path(__file__).resolve())
+
+
+if not _IS_GENERIC_CONTEXT:
+    VOCABULARIES_NAMES_SCHEMES = {
+        **_UPSTREAM_NAMES_SCHEMES,
+        "kc_username": {
+            "label": _("KC member"),
+            "validator": always_valid,
+            "datacite": "Other",
+        },
+    }
+    """Names vocabulary allowed identifier schemes (KCWorks extensions)."""
