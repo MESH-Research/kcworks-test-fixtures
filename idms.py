@@ -4,10 +4,104 @@
 # This code is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
-"""Text fixture related to remote IDMS actions."""
+"""Test fixtures related to remote IDMS actions."""
+
+import os
 
 import pytest
-from flask import current_app
+from flask import current_app, g, request
+from flask_principal import Identity, identity_changed
+from invenio_accounts.models import User
+from invenio_accounts.proxies import current_datastore
+from invenio_oauth2server.proxies import current_oauth2server
+from pydantic import BaseModel, ConfigDict
+
+from invenio_remote_user_data_kcworks.utils.broker import extract_bearer_token
+
+
+class _AccessTokenStandIn(BaseModel):
+    """Minimal stand-in for OAuth ``Token``; static-token flow only uses ``scopes``."""
+
+    scopes: set[str]
+
+
+class _OAuthStandIn(BaseModel):
+    """Minimal stand-in for ``request.oauth`` after static bearer auth."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    user: User
+    access_token: _AccessTokenStandIn
+
+
+def _route_token_env_for_request(path: str, routes_map: dict[str, str]) -> str | None:
+    """Return the token env var name for ``path``, or ``None``."""
+    if not routes_map:
+        return None
+    matches = [
+        (prefix, env_var)
+        for prefix, env_var in routes_map.items()
+        if path.startswith(prefix)
+    ]
+    if not matches:
+        return None
+    most_specific = max(matches, key=lambda p: len([s for s in p[0].split("/") if s]))
+    return most_specific[1]
+
+
+def _idms_static_api_token_before_request() -> None:
+    """If path + Bearer match ``STATIC_API_TOKEN_ROUTES``, impersonate configured user.
+
+    Mirrors KCWorks ``site/kcworks/ext.py``; installed from ``tests.conftest`` for API
+    tests that use ``create_api`` without the site ``api_finalize_app`` hook.
+    """
+    if getattr(request, "oauth_verify_has_run", False):
+        return
+
+    routes_map = current_app.config.get("STATIC_API_TOKEN_ROUTES") or {}
+    token_env_var = _route_token_env_for_request(request.path, routes_map)
+    if not token_env_var:
+        return
+    static_token = os.environ.get(token_env_var)
+    if not static_token:
+        return
+    try:
+        token = extract_bearer_token(request.headers.get("Authorization") or "")
+    except ValueError:
+        return
+    if token != static_token:
+        return
+
+    user_id = current_app.config.get("STATIC_API_TOKEN_USER_ID")
+    if user_id is None:
+        return
+    user = current_datastore.find_user(id=user_id)
+    if not user or not user.active:
+        return
+
+    g._login_user = user
+    identity_changed.send(
+        current_app._get_current_object(),
+        identity=Identity(user.id),  # type: ignore[arg-type]
+    )
+    scopes = {sid for sid, _ in current_oauth2server.scope_choices()}
+    request.oauth = _OAuthStandIn(  # type: ignore[attr-defined]
+        user=user,
+        access_token=_AccessTokenStandIn(scopes=scopes),
+    )
+    request.skip_csrf_check = True  # type: ignore[attr-defined]
+    request.oauth_verify_has_run = True  # type: ignore[attr-defined]
+
+
+def register_idms_static_api_token_before_request(app) -> None:
+    """Prepend the IDMS static-token handler when ``STATIC_API_TOKEN_*`` is set."""
+    routes_map = app.config.get("STATIC_API_TOKEN_ROUTES") or {}
+    static_user_id = app.config.get("STATIC_API_TOKEN_USER_ID")
+    if not routes_map or static_user_id is None:
+        return
+    funcs = app.before_request_funcs.get(None, [])
+    if _idms_static_api_token_before_request in funcs:
+        return
+    app.before_request_funcs[None] = [_idms_static_api_token_before_request] + funcs
 
 
 @pytest.fixture
@@ -36,6 +130,37 @@ def mock_logout_signal_receiver(requests_mock):
         )
 
     return mock_receiver
+
+
+_IDMS_STATIC_API_TEST_TOKEN = "test-idms-static-api-token"
+
+
+@pytest.fixture(scope="function")
+def idms_static_api_auth(
+    app,
+    admin,
+    admin_role_need,
+    monkeypatch,
+) -> dict[str, str]:
+    """HTTP headers with ``Authorization: Bearer`` for IDMS static-token routes.
+
+    Sets ``TEST_IDMS_STATIC_API_TOKEN`` (see ``STATIC_API_TOKEN_ROUTES`` in test
+    config) and ``STATIC_API_TOKEN_USER_ID`` to ``admin`` so the before-request
+    hook matches production KCWorks behaviour.
+
+    Args:
+        app: Flask application.
+        admin: User whose id is configured as the static-token principal.
+        admin_role_need: Links ``administration_access_action`` to the admin role.
+        monkeypatch: Pytest monkeypatch fixture.
+
+    Returns:
+        Headers dict suitable for requests to routes listed in
+        ``STATIC_API_TOKEN_ROUTES``.
+    """
+    monkeypatch.setenv("TEST_IDMS_STATIC_API_TOKEN", _IDMS_STATIC_API_TEST_TOKEN)
+    app.config["STATIC_API_TOKEN_USER_ID"] = admin.user.id
+    return {"Authorization": f"Bearer {_IDMS_STATIC_API_TEST_TOKEN}"}
 
 
 IDMS_MEMBERS_RESPONSE = {
