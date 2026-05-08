@@ -29,3 +29,29 @@ if not _IS_GENERIC_CONTEXT:
         },
     }
     """Names vocabulary allowed identifier schemes (KCWorks extensions)."""
+
+SAMPLE_NAME_RESULT = {
+    "id": "gihctester",
+    "created": "2026-05-06T18:02:22.432478+00:00",
+    "updated": "2026-05-06T18:02:22.438609+00:00",
+    "links": {"self": "http://localhost/api/names/gihctester"},
+    "revision_id": 3,
+    "tags": ["kcworks-user"],
+    "internal_id": None,
+    "name": "Hc, Ghost",
+    "given_name": "Ghost",
+    "family_name": "Hc",
+    "identifiers": [
+        {"identifier": "gihctester", "scheme": "kc_username"},
+        {"identifier": "0000-0002-1825-0097", "scheme": "orcid"},
+    ],
+    "affiliations": [],
+    "props": {
+        "kcworks_user_id": "2",
+        "name_parts": {"first": "Ghost", "last": "Hc"},
+        "display_name": "Hc, Ghost",
+        "family_token": "hc",
+        "family_part_tokens": ["hc"],
+        "family_phonetic_tokens": ["HK"],
+    },
+}
