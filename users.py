@@ -254,7 +254,7 @@ class AugmentedUserFixture(UserFixtureBase):
 @pytest.fixture(scope="function")
 def user_factory(
     app,
-    admin_role_need,
+    db,
     requests_mock,
     mock_user_data_api,
     user_data_to_remote_data,
@@ -332,7 +332,7 @@ def user_factory(
 
         u = AugmentedUserFixture(
             email=email,
-            password=hash_password(password),
+            password=password,  # already hashed downstream
         )
         u.create(app, db)
 
@@ -344,8 +344,12 @@ def user_factory(
             ).access_token
 
         if admin:
+            # Use find_or_create_role: passing the string "administration" to
+            # add_role_to_user resolves via find_role only; if the role row is
+            # missing in this session, _prepare_role_modify_args returns None and
+            # user.roles.append(None) raises FlushError on flush.
             datastore = app.extensions["security"].datastore
-            _, role = datastore._prepare_role_modify_args(u.user, "administration")
+            role = datastore.find_or_create_role(name="administration")
             datastore.add_role_to_user(u.user, role)
 
         if u.user and orcid:
@@ -381,7 +385,7 @@ def user_factory(
 
 
 @pytest.fixture(scope="function")
-def admin_role_need(db):
+def admin_role_need(app, db):
     """Store 1 role with 'superuser-access' ActionNeed.
 
     WHY: This is needed because expansion of ActionNeed is

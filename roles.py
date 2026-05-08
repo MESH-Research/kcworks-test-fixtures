@@ -17,3 +17,4 @@ def admin_roles():
     current_accounts.datastore.create_role(name="admin-moderator")
     current_accounts.datastore.create_role(name="administration")
     current_accounts.datastore.create_role(name="administration-moderation")
+    current_accounts.datastore.commit()
