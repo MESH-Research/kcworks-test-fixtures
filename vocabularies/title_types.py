@@ -7,21 +7,15 @@
 """Vocabulary pytest fixtures for date types."""
 
 import pytest
-from invenio_access.permissions import system_identity
 from invenio_search.proxies import current_search_client
 from invenio_vocabularies.proxies import current_service as vocabulary_service
 from invenio_vocabularies.records.api import Vocabulary
 from invenio_vocabularies.records.models import VocabularyMetadata
 
+from tests.fixtures.vocabularies.rebuild_helpers import ensure_shared_vocabulary_type
 
-@pytest.fixture(scope="module")
-def title_type_type(app):
-    """Fixture to create the title type vocabulary type.
-
-    Returns:
-        VocabularyType: The created title type vocabulary type.
-    """
-    return vocabulary_service.create_type(system_identity, "titletypes", "ttyp")
+TYPE_ID = "titletypes"
+PID_TYPE = "ttyp"
 
 
 title_type_data = [
@@ -49,17 +43,28 @@ title_type_data = [
 ]
 
 
-@pytest.fixture(scope="module")
-def title_type_v(app, title_type_type):
-    """Title Type vocabulary record."""
-    for title_type in title_type_data:
-        vocabulary_service.create(system_identity, {**title_type, "type": "titletypes"})
+def ensure_title_types_vocabulary(refresh: bool = True) -> int:
+    """Ensure the title type vocabulary records exist.
 
-    Vocabulary.index.refresh()
+    Returns:
+        The number of new title type entries created.
+    """
+    return ensure_shared_vocabulary_type(
+        type_id=TYPE_ID,
+        pid_type=PID_TYPE,
+        rows=title_type_data,
+        refresh=refresh,
+    )
+
+
+@pytest.fixture(scope="module")
+def title_type_v(app) -> None:
+    """Title Type vocabulary record."""
+    ensure_title_types_vocabulary()
 
 
 @pytest.fixture(scope="function")
-def reindex_title_types(running_app):
+def reindex_title_types(running_app) -> None:
     """Ensure vocabulary search indices exist and are populated.
 
     This method checks if vocabulary indices are missing or empty and
@@ -90,7 +95,8 @@ def reindex_title_types(running_app):
         or terms_search["hits"]["total"]["value"] == 0
     ):
         db_records = VocabularyMetadata.query.filter(
-            VocabularyMetadata.json.op("->")("type")
+            VocabularyMetadata.json
+            .op("->")("type")
             .op("->>")("id")
             .in_(["titletypes", "ttyp"])
         ).all()

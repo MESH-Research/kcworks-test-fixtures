@@ -7,75 +7,87 @@
 """Vocabulary pytest fixtures for community types."""
 
 import pytest
-from invenio_access.permissions import system_identity
-from invenio_vocabularies.proxies import current_service as vocabulary_service
-from invenio_vocabularies.records.api import Vocabulary
+
+from tests.fixtures.vocabularies.rebuild_helpers import (
+    ensure_shared_vocabulary_type,
+    rebuild_shared_vocabulary_type,
+)
+
+TYPE_ID = "communitytypes"
+PID_TYPE = "comtyp"
+
+community_type_data = [
+    {
+        "id": "organization",
+        "title": {"en": "Organization"},
+        "type": "communitytypes",
+    },
+    {
+        "id": "event",
+        "title": {"en": "Event"},
+        "type": "communitytypes",
+    },
+    {
+        "id": "topic",
+        "title": {"en": "Topic"},
+        "type": "communitytypes",
+    },
+    {
+        "id": "project",
+        "title": {"en": "Project"},
+        "type": "communitytypes",
+    },
+    {
+        "id": "group",
+        "title": {"en": "Group"},
+        "type": "communitytypes",
+    },
+    {
+        "id": "commons",
+        "title": {"en": "Commons"},
+        "type": "communitytypes",
+    },
+]
 
 
-@pytest.fixture(scope="module")
-def community_type_type(app):
-    """Fixture to create the community type vocabulary type.
+def ensure_community_types_vocabulary(refresh: bool = True) -> int:
+    """Ensure the community type vocabulary type and records exist.
+
+    Args:
+        refresh: Whether to refresh the search index after creating new items.
 
     Returns:
-        VocabularyType: The created community type vocabulary type.
+        The number of new entries created.
     """
-    return vocabulary_service.create_type(system_identity, "communitytypes", "comtyp")
+    return ensure_shared_vocabulary_type(
+        type_id=TYPE_ID,
+        pid_type=PID_TYPE,
+        rows=community_type_data,
+        refresh=refresh,
+    )
 
 
 @pytest.fixture(scope="module")
-def community_type_v(app, community_type_type):
+def community_type_v(app) -> None:
     """Fixture to create the community type vocabulary records."""
-    vocabulary_service.create(
-        system_identity,
-        {
-            "id": "organization",
-            "title": {"en": "Organization"},
-            "type": "communitytypes",
-        },
+    ensure_community_types_vocabulary()
+
+
+def rebuild_community_types_vocabulary(refresh: bool = True) -> int:
+    """Rebuild the community_types index from DB-backed records.
+
+    Args:
+        refresh: Whether to refresh the affiliation index after rebuilding.
+
+    Returns:
+        int: The number of rebuilt vocabulary entries.
+    """
+    return rebuild_shared_vocabulary_type(
+        type_id=TYPE_ID, pid_type=PID_TYPE, refresh=refresh
     )
 
-    vocabulary_service.create(
-        system_identity,
-        {
-            "id": "event",
-            "title": {"en": "Event"},
-            "type": "communitytypes",
-        },
-    )
 
-    vocabulary_service.create(
-        system_identity,
-        {
-            "id": "topic",
-            "title": {"en": "Topic"},
-            "type": "communitytypes",
-        },
-    )
-
-    vocabulary_service.create(
-        system_identity,
-        {
-            "id": "project",
-            "title": {"en": "Project"},
-            "type": "communitytypes",
-        },
-    )
-
-    vocabulary_service.create(
-        system_identity,
-        {
-            "id": "group",
-            "title": {"en": "Group"},
-            "type": "communitytypes",
-        },
-    )
-
-    vocabulary_service.create(
-        system_identity,
-        {
-            "id": "commons",
-            "title": {"en": "Commons"},
-            "type": "communitytypes",
-        },
-    )
-    Vocabulary.index.refresh()
+@pytest.fixture(scope="module")
+def rebuild_community_types_v() -> None:
+    """Fixture to rebuild the community_types index from DB-backed records."""
+    rebuild_community_types_vocabulary()

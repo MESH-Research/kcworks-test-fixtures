@@ -6,10 +6,13 @@
 
 """DataCite DOI Client."""
 
+from typing import Any
 from unittest.mock import Mock
 
 from idutils import normalize_doi
 from invenio_rdm_records.services.pids import providers
+
+type JSONDict = dict[str, Any]
 
 
 class FakeDataCiteRESTClient:
@@ -48,62 +51,91 @@ class FakeDataCiteRESTClient:
 
         self.timeout = timeout
 
-    def public_doi(self, metadata, url, doi=None):
+    def public_doi(
+        self, metadata: JSONDict, url: str, doi: str | None = None
+    ) -> Mock:
         """Create a public doi ... not.
 
-        :param metadata: JSON format of the metadata.
-        :param doi: DOI (e.g. 10.123/456)
-        :param url: URL where the doi will resolve.
-        :return:
+        Arguments:
+            metadata: JSON format of the metadata.
+            doi: DOI (e.g. 10.123/456)
+            url: URL where the doi will resolve.
+
+        Returns:
+            Mock placeholder for the public doi.
         """
         return Mock()
 
-    def update_doi(self, doi, metadata=None, url=None):
+    def update_doi(
+        self,
+        doi: str,
+        metadata: JSONDict | None = None,
+        url: str | None = None,
+    ) -> Mock:
         """Update the metadata or url for a DOI ... not.
 
-        :param url: URL where the doi will resolve.
-        :param metadata: JSON format of the metadata.
-        :return:
+        Arguments:
+            doi: DOI (e.g. 10.123/456).
+            url: URL where the doi will resolve.
+            metadata: JSON format of the metadata.
+
+        Returns:
+            Mock placeholder for the updated DOI.
         """
         return Mock()
 
-    def delete_doi(self, doi):
+    def delete_doi(self, doi: str) -> Mock:
         """Delete a doi ... not.
 
         This will only work for draft dois
 
-        :param doi: DOI (e.g. 10.123/456)
-        :return:
+        Args:
+            doi: DOI (e.g. 10.123/456).
+
+        Returns:
+            Mock placeholder for the deleted DOI.
         """
         return Mock()
 
-    def hide_doi(self, doi):
+    def hide_doi(self, doi: str) -> Mock:
         """Hide a previously registered DOI ... not.
 
         This DOI will no
         longer be found in DataCite Search
 
-        :param doi: DOI to hide e.g. 10.12345/1.
-        :return:
+        Args:
+            doi: DOI to hide, e.g. 10.12345/1.
+
+        Returns:
+            Mock placeholder for the hidden DOI.
         """
         return Mock()
 
-    def show_doi(self, doi):
+    def show_doi(self, doi: str) -> Mock:
         """Show a previously hidden DOI ... not.
 
         This DOI will no
         longer be found in DataCite Search
 
-        :param doi: DOI to hide e.g. 10.12345/1.
-        :return:
+        Args:
+            doi: DOI to show, e.g. 10.12345/1.
+
+        Returns:
+            Mock placeholder for the shown DOI.
         """
         return Mock()
 
-    def check_doi(self, doi):
+    def check_doi(self, doi: str) -> str:
         """Check doi structure.
 
         Check that the doi has a form
         12.12345/123 with the prefix defined
+
+        Returns:
+            The normalized DOI string.
+
+        Raises:
+            ValueError: If the DOI prefix does not match the configured prefix.
         """
         # If prefix is in doi
         if "/" in doi:
@@ -119,8 +151,12 @@ class FakeDataCiteRESTClient:
             doi = f"{self.prefix}/{doi}"
         return normalize_doi(doi)
 
-    def __repr__(self):
-        """Create string representation of object."""
+    def __repr__(self) -> str:
+        """Create a string representation of the object.
+
+        Returns:
+            The debug representation of the fake client.
+        """
         return f"<FakeDataCiteRESTClient: {self.username}>"
 
 
@@ -128,7 +164,7 @@ class FakeDataCiteClient(providers.DataCiteClient):
     """Fake DataCite Client."""
 
     @property
-    def api(self):
+    def api(self) -> FakeDataCiteRESTClient:
         """DataCite REST API client instance."""
         if self._api is None:
             self.check_credentials()

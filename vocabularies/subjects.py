@@ -16,14 +16,14 @@
 """Fixtures for subjects vocabulary."""
 
 import pytest
-from invenio_access.permissions import system_identity
-from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_records_resources.proxies import current_service_registry
 from invenio_vocabularies.contrib.subjects.api import Subject
 
+from tests.fixtures.vocabularies.rebuild_helpers import ensure_service_vocabulary
+
 
 @pytest.fixture(scope="module")
-def subjects_service(app):
+def subjects_service(app) -> object:
     """Pytest fixture providing the current subjects service.
 
     Returns:
@@ -391,15 +391,21 @@ subject_data = [
 ]
 
 
+def ensure_subjects_vocabulary(refresh: bool = True) -> int:
+    """Ensure the subjects vocabulary records exist.
+
+    Returns:
+        The number of new subject entries created.
+    """
+    return ensure_service_vocabulary(
+        service_name="subjects",
+        rows=subject_data,
+        record_cls=Subject,
+        refresh=refresh,
+    )
+
+
 @pytest.fixture(scope="module")
-def subject_v(app, subjects_service):
+def subject_v(app, subjects_service: object) -> None:
     """Fixture to create the subject vocabulary."""
-    for subject in subject_data:
-        try:
-            subjects_service.read(system_identity, id_=subject["id"])
-        except PIDDoesNotExistError:
-            subjects_service.create(
-                system_identity,
-                subject,
-            )
-    Subject.index.refresh()  # type: ignore
+    ensure_subjects_vocabulary()

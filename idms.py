@@ -7,6 +7,7 @@
 """Test fixtures related to remote IDMS actions."""
 
 import os
+from typing import Any
 
 import pytest
 from flask import current_app, g, request
@@ -16,6 +17,12 @@ from invenio_accounts.proxies import current_datastore
 from invenio_oauth2server.proxies import current_oauth2server
 from pydantic import BaseModel, ConfigDict
 
+from invenio_remote_user_data_kcworks.types.profiles_api import (
+    APIResponse,
+    Meta,
+    Profile,
+    SubData,
+)
 from invenio_remote_user_data_kcworks.utils.broker import extract_bearer_token
 
 
@@ -31,6 +38,57 @@ class _OAuthStandIn(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     user: User
     access_token: _AccessTokenStandIn
+
+
+def minimal_profile(**overrides: Any) -> Profile:
+    """Return a valid minimal Profiles API `Profile` payload."""
+    payload = {
+        "username": "myuser",
+        "name": "My User",
+        "email": "myuser@example.org",
+        "first_name": "My",
+        "last_name": "User",
+        "institutional_affiliation": None,
+        "orcid": None,
+        "academic_interests": [],
+        "groups": [],
+        "avatar": None,
+        "url": None,
+        "is_superadmin": False,
+    }
+    payload.update(overrides)
+    return Profile(**payload)
+
+
+def minimal_api_response(
+    sub: str,
+    *,
+    authorized: bool = True,
+    profile: Profile | None = None,
+    **profile_overrides: Any,
+) -> APIResponse:
+    """Return a valid minimal `subs` endpoint response."""
+    if profile is None:
+        profile = minimal_profile(**profile_overrides)
+    elif profile_overrides:
+        profile = Profile(**{**profile.model_dump(mode="python"), **profile_overrides})
+
+    return APIResponse(
+        data=[SubData(sub=sub, profile=profile)],
+        meta=Meta(authorized=authorized),
+        next=None,
+        previous=None,
+    )
+
+
+def empty_api_response(*, authorized: bool = True) -> APIResponse:
+    """Return a valid empty `subs` endpoint response."""
+    return APIResponse(
+        data=[],
+        meta=Meta(authorized=authorized),
+        next=None,
+        previous=None,
+    )
 
 
 def _route_token_env_for_request(path: str, routes_map: dict[str, str]) -> str | None:

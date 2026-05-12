@@ -11,10 +11,15 @@ import pytest
 from invenio_accounts.proxies import current_accounts
 
 
-@pytest.fixture(scope="module")
-def admin_roles():
+@pytest.fixture(scope="session")
+def admin_roles(bootstrap_app, database):
     """Fixture to create admin roles."""
-    current_accounts.datastore.create_role(name="admin-moderator")
-    current_accounts.datastore.create_role(name="administration")
-    current_accounts.datastore.create_role(name="administration-moderation")
-    current_accounts.datastore.commit()
+    with bootstrap_app.app_context():
+        for role_name in (
+            "admin-moderator",
+            "administration",
+            "administration-moderation",
+        ):
+            if current_accounts.datastore.find_role(role_name) is None:
+                current_accounts.datastore.create_role(name=role_name)
+        current_accounts.datastore.commit()

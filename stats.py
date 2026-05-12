@@ -32,11 +32,23 @@ try:
 except ImportError:
     from invenio_stats.aggregations import StatAggregator
 
-from invenio_stats_dashboard.aggregations import (
-    register_aggregations as register_community_aggregations,
-)
-from invenio_stats_dashboard.config import COMMUNITY_STATS_QUERIES
-from invenio_stats_dashboard.utils.usage_events import UsageEventFactory
+try:
+    from invenio_stats_dashboard.aggregations import (
+        register_aggregations as register_community_aggregations,
+    )
+    from invenio_stats_dashboard.config import COMMUNITY_STATS_QUERIES
+    from invenio_stats_dashboard.utils.usage_events import UsageEventFactory
+except ImportError:
+    def register_community_aggregations():
+        """Return no community aggregations when stats dashboard is absent."""
+        return {}
+
+    COMMUNITY_STATS_QUERIES = {}
+
+    class UsageEventFactory:
+        """Placeholder factory used when stats dashboard is not installed."""
+
+        pass
 
 AllowAllPermission = type(
     "Allow",

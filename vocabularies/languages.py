@@ -7,21 +7,15 @@
 """Vocabulary pytest fixtures for languages."""
 
 import pytest
-from invenio_access.permissions import system_identity
 from invenio_search import current_search_client
 from invenio_vocabularies.proxies import current_service as vocabulary_service
 from invenio_vocabularies.records.api import Vocabulary
 from invenio_vocabularies.records.models import VocabularyMetadata
 
+from tests.fixtures.vocabularies.rebuild_helpers import ensure_shared_vocabulary_type
 
-@pytest.fixture(scope="module")
-def language_type(app):
-    """Fixture to create the language vocabulary type.
-
-    Returns:
-        VocabularyType: The created language vocabulary type.
-    """
-    return vocabulary_service.create_type(system_identity, "languages", "lng")
+TYPE_ID = "languages"
+PID_TYPE = "lng"
 
 
 language_data = [
@@ -53,20 +47,28 @@ language_data = [
 ]
 
 
-@pytest.fixture(scope="module")
-def language_v(app, language_type):
-    """Fixture to create the language vocabulary records."""
-    for language in language_data:
-        vocabulary_service.create(
-            system_identity,
-            language,
-        )
+def ensure_languages_vocabulary(refresh: bool = True) -> int:
+    """Ensure the language vocabulary records exist.
 
-    Vocabulary.index.refresh()
+    Returns:
+        The number of new language entries created.
+    """
+    return ensure_shared_vocabulary_type(
+        type_id=TYPE_ID,
+        pid_type=PID_TYPE,
+        rows=language_data,
+        refresh=refresh,
+    )
+
+
+@pytest.fixture(scope="module")
+def language_v(app) -> None:
+    """Fixture to create the language vocabulary records."""
+    ensure_languages_vocabulary()
 
 
 @pytest.fixture(scope="function")
-def reindex_languages(running_app):
+def reindex_languages(running_app) -> None:
     """Ensure vocabulary search indices exist and are populated.
 
     This method checks if vocabulary indices are missing or empty and
@@ -97,7 +99,8 @@ def reindex_languages(running_app):
         or terms_search["hits"]["total"]["value"] == 0
     ):
         db_records = VocabularyMetadata.query.filter(
-            VocabularyMetadata.json.op("->")("type")
+            VocabularyMetadata.json
+            .op("->")("type")
             .op("->>")("id")
             .in_(["languages", "lng"])
         ).all()

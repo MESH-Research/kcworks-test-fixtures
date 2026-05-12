@@ -7,19 +7,11 @@
 """Vocabulary pytest fixtures for descriptions."""
 
 import pytest
-from invenio_access.permissions import system_identity
-from invenio_vocabularies.proxies import current_service as vocabulary_service
-from invenio_vocabularies.records.api import Vocabulary
 
+from tests.fixtures.vocabularies.rebuild_helpers import ensure_shared_vocabulary_type
 
-@pytest.fixture(scope="module")
-def description_type(app):
-    """Fixture to create the descriptiontype vocabulary type.
-
-    Returns:
-        VocabularyType: The created description type vocabulary type.
-    """
-    return vocabulary_service.create_type(system_identity, "descriptiontypes", "dty")
+TYPE_ID = "descriptiontypes"
+PID_TYPE = "dty"
 
 
 DESCRIPTION_TYPES = [
@@ -41,12 +33,21 @@ DESCRIPTION_TYPES = [
 ]
 
 
-@pytest.fixture(scope="module")
-def description_type_v(app, description_type):
-    """Title Type vocabulary record."""
-    for description_type in DESCRIPTION_TYPES:
-        vocabulary_service.create(
-            system_identity, {**description_type, "type": "descriptiontypes"}
-        )
+def ensure_description_types_vocabulary(refresh: bool = True) -> int:
+    """Ensure the description type vocabulary records exist.
 
-    Vocabulary.index.refresh()
+    Returns:
+        The number of new description type entries created.
+    """
+    return ensure_shared_vocabulary_type(
+        type_id=TYPE_ID,
+        pid_type=PID_TYPE,
+        rows=DESCRIPTION_TYPES,
+        refresh=refresh,
+    )
+
+
+@pytest.fixture(scope="module")
+def description_type_v(app) -> None:
+    """Title Type vocabulary record."""
+    ensure_description_types_vocabulary()

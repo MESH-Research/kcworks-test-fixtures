@@ -7,95 +7,113 @@
 """Vocabulary pytest fixtures for funding and awards."""
 
 import pytest
-from invenio_access.permissions import system_identity
-from invenio_records_resources.proxies import current_service_registry
 from invenio_vocabularies.contrib.awards.api import Award
 from invenio_vocabularies.contrib.funders.api import Funder
 
+from tests.fixtures.vocabularies.rebuild_helpers import ensure_service_vocabulary
+
+FUNDER_IDS = [
+    "00k4n6c31",
+    "00k4n6c32",
+    "00k4n6c33",
+    "00k4n6c34",
+    "00k4n6c35",
+    "00k4n6c36",
+]
+
+AWARD_IDS = [
+    "00k4n6c31::755021",
+    "00k4n6c32::755022",
+    "00k4n6c33::755023",
+    "00k4n6c34::755024",
+    "00k4n6c35::755025",
+    "00k4n6c36::755026",
+]
+
+FUNDER_DATA = [
+    {
+        "id": funder,
+        "identifiers": [
+            {
+                "identifier": funder,
+                "scheme": "ofr",
+            },
+        ],
+        "name": f"Funder {funder}",
+        "title": {
+            "en": f"Funder {funder}",
+            "fr": f"Fournisseur {funder}",
+        },
+        "country": "BE",
+    }
+    for funder in FUNDER_IDS
+]
+
+AWARD_DATA = [
+    {
+        "id": award,
+        "identifiers": [
+            {
+                "identifier": f"https://sandbox.kcworks.org/{award}",
+                "scheme": "url",
+            },
+        ],
+        "number": award.split("::")[1],
+        "title": {
+            "en": f"Award {award.split('::')[1]}",
+        },
+        "funder": {"id": award.split("::")[0]},
+        "acronym": "HIT-CF",
+        "program": "H2020",
+    }
+    for award in AWARD_IDS
+]
+
+
+def ensure_funders_vocabulary(refresh: bool = True) -> int:
+    """Ensure the funders vocabulary records exist.
+
+    Returns:
+        The number of new funder entries created.
+    """
+    return ensure_service_vocabulary(
+        service_name="funders",
+        rows=FUNDER_DATA,
+        record_cls=Funder,
+        refresh=refresh,
+    )
+
+
+def ensure_awards_vocabulary(refresh: bool = True) -> int:
+    """Ensure the awards vocabulary records exist.
+
+    Returns:
+        The number of new award entries created.
+    """
+    ensure_funders_vocabulary(refresh=refresh)
+    return ensure_service_vocabulary(
+        service_name="awards",
+        rows=AWARD_DATA,
+        record_cls=Award,
+        refresh=refresh,
+    )
+
 
 @pytest.fixture(scope="module")
-def funders_v(app):
+def funders_v(app) -> int:
     """Fixture to create the funder vocabulary records.
 
     Returns:
-        list: List of created funder vocabulary records.
+        int: The number of new funder entries created.
     """
-    funders_service = current_service_registry.get("funders")
-    funders = [
-        "00k4n6c31",
-        "00k4n6c32",
-        "00k4n6c33",
-        "00k4n6c34",
-        "00k4n6c35",
-        "00k4n6c36",
-    ]
-    funder_items = []
-    for funder in funders:
-        funder = funders_service.create(
-            system_identity,
-            {
-                "id": funder,
-                "identifiers": [
-                    {
-                        "identifier": funder,
-                        "scheme": "ofr",
-                    },
-                ],
-                "name": f"Funder {funder}",
-                "title": {
-                    "en": f"Funder {funder}",
-                    "fr": f"Fournisseur {funder}",
-                },
-                "country": "BE",
-            },
-        )
-        funder_items.append(funder)
-
-    if Funder:
-        Funder.index.refresh()
-    return funder_items
+    return ensure_funders_vocabulary()
 
 
 @pytest.fixture(scope="module")
-def awards_v(app, funders_v):
+def awards_v(app, funders_v: int) -> int:
     """Funder vocabulary record.
 
     Returns:
-        list: List of created award vocabulary records.
+        int: The number of new award entries created.
     """
-    awards_service = current_service_registry.get("awards")
-    awards = [
-        "00k4n6c31::755021",
-        "00k4n6c32::755022",
-        "00k4n6c33::755023",
-        "00k4n6c34::755024",
-        "00k4n6c35::755025",
-        "00k4n6c36::755026",
-    ]
-    award_items = []
-    for award in awards:
-        award = awards_service.create(
-            system_identity,
-            {
-                "id": award,
-                "identifiers": [
-                    {
-                        "identifier": f"https://sandbox.kcworks.org/{award}",
-                        "scheme": "url",
-                    },
-                ],
-                "number": award.split("::")[1],
-                "title": {
-                    "en": f"Award {award.split('::')[1]}",
-                },
-                "funder": {"id": award.split("::")[0]},
-                "acronym": "HIT-CF",
-                "program": "H2020",
-            },
-        )
-        award_items.append(award)
-
-    if Award:
-        Award.index.refresh()
-
-    return award_items
+    return ensure_awards_vocabulary()

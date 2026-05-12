@@ -8,14 +8,12 @@
 """User related pytest fixtures for testing."""
 
 from collections.abc import Callable
-from pprint import pformat
 from typing import Any
 
 import pytest
 from flask import current_app
 from flask_login import login_user
 from flask_principal import AnonymousIdentity, Identity
-from flask_security.utils import hash_password
 from invenio_access.models import ActionRoles, Role
 from invenio_access.permissions import (
     any_user,
@@ -27,7 +25,6 @@ from invenio_accounts.models import User
 from invenio_accounts.proxies import current_accounts
 from invenio_accounts.testutils import login_user_via_session
 from invenio_administration.permissions import administration_access_action
-from invenio_db import db
 from invenio_oauth2server.models import Token
 from invenio_oauthclient.models import UserIdentity
 from pytest_invenio.fixtures import UserFixtureBase
@@ -156,11 +153,13 @@ def user_data_to_remote_data(requests_mock, app):
             """Convert user fixture data to format for remote data.
 
             Returns:
-                tuple[dict, dict, dict]: Returns three dictionaries with the same user data:
-                    [0] in the shape returned from the "subs" endpoint using the "sub" parameter,
+                tuple[dict, dict, dict]: Returns three dictionaries with
+                    the same user data:
+                    [0] in the shape returned from the "subs" endpoint
+                      using the "sub" parameter,
                     [1] in the shape returned from the "members" endpoint,
-                    [2] in the shape returned from the "subs" endpoint using the username as a path
-                      argument.
+                    [2] in the shape returned from the "subs" endpoint
+                      using the username as a path argument.
             """
             if hasattr(user_data, "data"):
                 profile_data = user_data["data"][0].get("profile", {})
@@ -288,7 +287,7 @@ def user_factory(
             # Main project's complete implementation with two endpoints
             mock_data_subs, mock_data_members, mock_data_subs_username = (
                 user_data_to_remote_data(
-                    kc_username or oauth_id or "",
+                    new_remote_data.get("kc_username") or kc_username or oauth_id or "",
                     new_remote_data.get("email") or email,
                     new_remote_data,
                     oauth_id,
@@ -297,7 +296,7 @@ def user_factory(
             # Mock the remote api call.
             mock_adapter_subs, mock_adapter_members, mock_adapter_subs_username = (
                 mock_user_data_api(
-                    kc_username or oauth_id or "",
+                    new_remote_data.get("kc_username") or kc_username or oauth_id or "",
                     oauth_id or "",
                     mock_data_subs,
                     mock_data_members,
@@ -309,9 +308,6 @@ def user_factory(
             mock_adapter_subs = None
             mock_adapter_members = None
             mock_adapter_subs_username = None
-
-        if not orcid and new_remote_data.get("orcid"):
-            orcid = new_remote_data.get("orcid")
 
         u = AugmentedUserFixture(
             email=email,
@@ -348,7 +344,7 @@ def user_factory(
         if u.user and oauth_src and oauth_id:
             if has_idms:
                 # Main project's complete OAuth setup
-                u.user.username = f"knowledgeCommons-{kc_username}"
+                u.user.username = kc_username
                 u.mock_adapter_members = mock_adapter_members
                 u.mock_adapter_subs = mock_adapter_subs
                 u.mock_adapter_subs_username = mock_adapter_subs_username

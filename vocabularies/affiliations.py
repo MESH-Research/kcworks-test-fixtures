@@ -1,5 +1,5 @@
 # Part of KCWorks Test Fixtures
-# Copyright (C) 2023-2025, MESH Research
+# Copyright (C) 2023-2026, MESH Research
 #
 # This code is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
@@ -7,9 +7,12 @@
 """Vocabulary pytest fixtures for affiliations."""
 
 import pytest
-from invenio_access.permissions import system_identity
-from invenio_records_resources.proxies import current_service_registry
 from invenio_vocabularies.contrib.affiliations.api import Affiliation
+
+from tests.fixtures.vocabularies.rebuild_helpers import (
+    ensure_service_vocabulary,
+    rebuild_service_vocabulary,
+)
 
 affiliation_data = [
     {
@@ -48,14 +51,47 @@ affiliation_data = [
 ]
 
 
-@pytest.fixture(scope="module")
-def affiliations_v(app):
-    """Fixture to create the affiliation vocabulary records."""
-    affiliations_service = current_service_registry.get("affiliations")
-    for affiliation in affiliation_data:
-        affiliations_service.create(
-            system_identity,
-            affiliation,
-        )
+def ensure_affiliations_vocabulary(refresh: bool = True) -> int:
+    """Ensure the affiliation vocabulary records exist.
 
-    Affiliation.index.refresh()
+    Idempotent. This will not conflict with or modify existing entries for the same
+    vocabulary items.
+
+    Returns:
+        The number of new entries added.
+    """
+    return ensure_service_vocabulary(
+        service_name="affiliations",
+        rows=affiliation_data,
+        record_cls=Affiliation,
+        refresh=refresh,
+    )
+
+
+@pytest.fixture(scope="module")
+def affiliations_v(app) -> None:
+    """Fixture function to create the affiliation vocabulary records."""
+    ensure_affiliations_vocabulary()
+
+
+def rebuild_affiliations_vocabulary(refresh: bool = True) -> int:
+    """Rebuild the affiliations index from DB-backed records.
+
+    Args:
+        refresh: Whether to refresh the affiliation index after rebuilding.
+
+    Returns:
+        int: The number of rebuilt search entries.
+    """
+    return rebuild_service_vocabulary(
+        service_name="affiliations",
+        record_cls=Affiliation,
+        index_alias="affiliations",
+        refresh=refresh,
+    )
+
+
+@pytest.fixture(scope="module")
+def rebuild_affiliations_v(app) -> None:
+    """Fixture function to create the affiliation vocabulary records."""
+    rebuild_affiliations_vocabulary()

@@ -7,19 +7,11 @@
 """Vocabulary pytest fixtures for licenses."""
 
 import pytest
-from invenio_access.permissions import system_identity
-from invenio_vocabularies.proxies import current_service as vocabulary_service
-from invenio_vocabularies.records.api import Vocabulary
 
+from tests.fixtures.vocabularies.rebuild_helpers import ensure_shared_vocabulary_type
 
-@pytest.fixture(scope="module")
-def licenses(app):
-    """Fixture to create the licenses vocabulary type.
-
-    Returns:
-        VocabularyType: The created licenses vocabulary type.
-    """
-    return vocabulary_service.create_type(system_identity, "licenses", "lic")
+TYPE_ID = "licenses"
+PID_TYPE = "lic"
 
 
 # List of license data dictionaries
@@ -107,17 +99,24 @@ LICENSE_DATA = [
 ]
 
 
-@pytest.fixture(scope="module")
-def licenses_v(app, licenses):
-    """Fixture to create the licenses vocabulary records."""
-    for license_data in LICENSE_DATA:
-        vocabulary_service.create(
-            system_identity,
-            {
-                **license_data,
-                "type": "licenses",
-                "tags": ["recommended", "all"],
-            },
-        )
+def ensure_licenses_vocabulary(refresh: bool = True) -> int:
+    """Ensure the licenses vocabulary records exist.
 
-    Vocabulary.index.refresh()
+    Returns:
+        The number of new license entries created.
+    """
+    return ensure_shared_vocabulary_type(
+        type_id=TYPE_ID,
+        pid_type=PID_TYPE,
+        rows=[
+            {**license_data, "tags": ["recommended", "all"]}
+            for license_data in LICENSE_DATA
+        ],
+        refresh=refresh,
+    )
+
+
+@pytest.fixture(scope="module")
+def licenses_v(app) -> None:
+    """Fixture to create the licenses vocabulary records."""
+    ensure_licenses_vocabulary()

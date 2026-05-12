@@ -7,21 +7,15 @@
 """Vocabulary pytest fixtures for date types."""
 
 import pytest
-from invenio_access.permissions import system_identity
 from invenio_search.proxies import current_search_client
 from invenio_vocabularies.proxies import current_service as vocabulary_service
 from invenio_vocabularies.records.api import Vocabulary
 from invenio_vocabularies.records.models import VocabularyMetadata
 
+from tests.fixtures.vocabularies.rebuild_helpers import ensure_shared_vocabulary_type
 
-@pytest.fixture(scope="module")
-def date_type_type(app):
-    """Fixture to create the date type vocabulary type.
-
-    Returns:
-        VocabularyType: The created date type vocabulary type.
-    """
-    return vocabulary_service.create_type(system_identity, "datetypes", "dat")
+TYPE_ID = "datetypes"
+PID_TYPE = "dat"
 
 
 date_type_data = [
@@ -48,17 +42,28 @@ date_type_data = [
 ]
 
 
-@pytest.fixture(scope="module")
-def date_type_v(app, date_type_type):
-    """Fixture to create the date type vocabulary records."""
-    for date_type in date_type_data:
-        vocabulary_service.create(system_identity, {**date_type, "type": "datetypes"})
+def ensure_date_types_vocabulary(refresh: bool = True) -> int:
+    """Ensure the date type vocabulary records exist.
 
-    Vocabulary.index.refresh()
+    Returns:
+        The number of new date type entries created.
+    """
+    return ensure_shared_vocabulary_type(
+        type_id=TYPE_ID,
+        pid_type=PID_TYPE,
+        rows=date_type_data,
+        refresh=refresh,
+    )
+
+
+@pytest.fixture(scope="module")
+def date_type_v(app) -> None:
+    """Fixture to create the date type vocabulary records."""
+    ensure_date_types_vocabulary()
 
 
 @pytest.fixture(scope="function")
-def reindex_date_types(running_app):
+def reindex_date_types(running_app) -> None:
     """Ensure vocabulary search indices exist and are populated.
 
     This method checks if vocabulary indices are missing or empty and
@@ -89,7 +94,8 @@ def reindex_date_types(running_app):
         or terms_search["hits"]["total"]["value"] == 0
     ):
         db_records = VocabularyMetadata.query.filter(
-            VocabularyMetadata.json.op("->")("type")
+            VocabularyMetadata.json
+            .op("->")("type")
             .op("->>")("id")
             .in_(["datetypes", "dat"])
         ).all()

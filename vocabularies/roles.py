@@ -7,9 +7,13 @@
 """Vocabulary pytest fixtures for roles."""
 
 import pytest
-from invenio_access.permissions import system_identity
-from invenio_vocabularies.proxies import current_service as vocabulary_service
-from invenio_vocabularies.records.api import Vocabulary
+
+from tests.fixtures.vocabularies.rebuild_helpers import ensure_shared_vocabulary_type
+
+CREATORS_TYPE_ID = "creatorsroles"
+CREATORS_PID_TYPE = "crr"
+CONTRIBUTORS_TYPE_ID = "contributorsroles"
+CONTRIBUTORS_PID_TYPE = "cor"
 
 creatibutor_roles = [
     {
@@ -45,41 +49,41 @@ creatibutor_roles = [
 ]
 
 
-@pytest.fixture(scope="module")
-def creators_role_type(app):
-    """Fixture to create the creator role vocabulary type.
+def ensure_creators_roles_vocabulary(refresh: bool = True) -> int:
+    """Ensure the creator role vocabulary records exist.
 
     Returns:
-        VocabularyType: The created creator role vocabulary type.
+        The number of new creator role entries created.
     """
-    return vocabulary_service.create_type(system_identity, "creatorsroles", "crr")
+    return ensure_shared_vocabulary_type(
+        type_id=CREATORS_TYPE_ID,
+        pid_type=CREATORS_PID_TYPE,
+        rows=creatibutor_roles,
+        refresh=refresh,
+    )
 
 
 @pytest.fixture(scope="module")
-def creators_role_v(app, creators_role_type):
+def creators_role_v(app) -> None:
     """Fixture to create the creator role vocabulary record."""
-    for role in creatibutor_roles:
-        vocabulary_service.create(system_identity, {**role, "type": "creatorsroles"})
-
-    Vocabulary.index.refresh()
+    ensure_creators_roles_vocabulary()
 
 
-@pytest.fixture(scope="module")
-def contributors_role_type(app):
-    """Fixture to create the contributor role vocabulary type.
+def ensure_contributors_roles_vocabulary(refresh: bool = True) -> int:
+    """Ensure the contributor role vocabulary records exist.
 
     Returns:
-        VocabularyType: The created contributor role vocabulary type.
+        The number of new contributor role entries created.
     """
-    return vocabulary_service.create_type(system_identity, "contributorsroles", "cor")
+    return ensure_shared_vocabulary_type(
+        type_id=CONTRIBUTORS_TYPE_ID,
+        pid_type=CONTRIBUTORS_PID_TYPE,
+        rows=creatibutor_roles,
+        refresh=refresh,
+    )
 
 
 @pytest.fixture(scope="module")
-def contributors_role_v(app, contributors_role_type):
+def contributors_role_v(app) -> None:
     """Fixture to create the contributor role vocabulary records."""
-    for role in creatibutor_roles:
-        vocabulary_service.create(
-            system_identity, {**role, "type": "contributorsroles"}
-        )
-
-    Vocabulary.index.refresh()
+    ensure_contributors_roles_vocabulary()

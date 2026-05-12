@@ -8,7 +8,10 @@
 
 import pytest
 
-from invenio_stats_dashboard.resources.cache_utils import StatsAggregationRegistry
+try:
+    from invenio_stats_dashboard.resources.cache_utils import StatsAggregationRegistry
+except ImportError:
+    StatsAggregationRegistry = None
 
 
 @pytest.fixture
@@ -30,6 +33,9 @@ def registry(running_app):
             assert registry.get(key) == "value"
         ```
     """
+    if StatsAggregationRegistry is None:
+        pytest.skip("`invenio_stats_dashboard` is required for caching fixtures.")
+
     reg = StatsAggregationRegistry()
     yield reg
     # Cleanup after test completes - clear ALL keys

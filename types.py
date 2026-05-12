@@ -30,7 +30,14 @@ class FileData(BaseModel):
     @field_validator("stream")
     @classmethod
     def validate_temp_file(cls, v: Any) -> SpooledTemporaryFile | BufferedReader | None:
-        """Validate that the stream is a valid file-like object."""
+        """Validate that the stream is a valid file-like object.
+
+        Returns:
+            The validated file-like object.
+
+        Raises:
+            ValueError: If the stream is not a supported file-like object.
+        """
         if v is not None and not isinstance(v, SpooledTemporaryFile | BufferedReader):
             raise ValueError("Must be a SpooledTemporaryFile or BufferedReader")
         return v

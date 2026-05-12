@@ -32,7 +32,7 @@ try:
     from invenio_stats_dashboard.services.components.components import (
         update_community_events_created_date,
     )
-except:
+except Exception:
     update_community_events_created_date = None
 
 from .communities import add_community_to_record
@@ -1012,12 +1012,13 @@ class TestRecordMetadata:
                 Defaults to read.
             now (Arrow, optional): The current time. Defaults to arrow.utcnow().
 
-        Raises:
-            AssertionError: if something fails in the comparison.
-
         Returns:
             bool: True if the actual metadata dictionary matches the expected
                 metadata dictionary, False otherwise.
+
+        Raises:
+            AssertionError: if something fails in the comparison.
+
         """
         app = self.app
         expected = deepcopy(self.published) if not expected else expected
