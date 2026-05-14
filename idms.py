@@ -27,13 +27,13 @@ from invenio_remote_user_data_kcworks.utils.broker import extract_bearer_token
 
 
 class _AccessTokenStandIn(BaseModel):
-    """Minimal stand-in for OAuth ``Token``; static-token flow only uses ``scopes``."""
+    """Minimal stand-in for OAuth `Token`; static-token flow only uses `scopes`."""
 
     scopes: set[str]
 
 
 class _OAuthStandIn(BaseModel):
-    """Minimal stand-in for ``request.oauth`` after static bearer auth."""
+    """Minimal stand-in for `request.oauth` after static bearer auth."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     user: User
@@ -92,7 +92,7 @@ def empty_api_response(*, authorized: bool = True) -> APIResponse:
 
 
 def _route_token_env_for_request(path: str, routes_map: dict[str, str]) -> str | None:
-    """Return the token env var name for ``path``, or ``None``."""
+    """Return the token env var name for `path`, or `None`."""
     if not routes_map:
         return None
     matches = [
@@ -107,10 +107,10 @@ def _route_token_env_for_request(path: str, routes_map: dict[str, str]) -> str |
 
 
 def _idms_static_api_token_before_request() -> None:
-    """If path + Bearer match ``STATIC_API_TOKEN_ROUTES``, impersonate configured user.
+    """If path + Bearer match `STATIC_API_TOKEN_ROUTES`, impersonate configured user.
 
-    Mirrors KCWorks ``site/kcworks/ext.py``; installed from ``tests.conftest`` for API
-    tests that use ``create_api`` without the site ``api_finalize_app`` hook.
+    Mirrors KCWorks `site/kcworks/ext.py`; installed from `tests.conftest` for API
+    tests that use `create_api` without the site `api_finalize_app` hook.
     """
     if getattr(request, "oauth_verify_has_run", False):
         return
@@ -151,7 +151,7 @@ def _idms_static_api_token_before_request() -> None:
 
 
 def register_idms_static_api_token_before_request(app) -> None:
-    """Prepend the IDMS static-token handler when ``STATIC_API_TOKEN_*`` is set."""
+    """Prepend the IDMS static-token handler when `STATIC_API_TOKEN_*` is set."""
     routes_map = app.config.get("STATIC_API_TOKEN_ROUTES") or {}
     static_user_id = app.config.get("STATIC_API_TOKEN_USER_ID")
     if not routes_map or static_user_id is None:
@@ -200,21 +200,21 @@ def idms_static_api_auth(
     admin_role_need,
     monkeypatch,
 ) -> dict[str, str]:
-    """HTTP headers with ``Authorization: Bearer`` for IDMS static-token routes.
+    """HTTP headers with `Authorization: Bearer` for IDMS static-token routes.
 
-    Sets ``TEST_IDMS_STATIC_API_TOKEN`` (see ``STATIC_API_TOKEN_ROUTES`` in test
-    config) and ``STATIC_API_TOKEN_USER_ID`` to ``admin`` so the before-request
+    Sets `TEST_IDMS_STATIC_API_TOKEN` (see `STATIC_API_TOKEN_ROUTES` in test
+    config) and `STATIC_API_TOKEN_USER_ID` to `admin` so the before-request
     hook matches production KCWorks behaviour.
 
     Args:
         app: Flask application.
         admin: User whose id is configured as the static-token principal.
-        admin_role_need: Links ``administration_access_action`` to the admin role.
+        admin_role_need: Links `administration_access_action` to the admin role.
         monkeypatch: Pytest monkeypatch fixture.
 
     Returns:
         Headers dict suitable for requests to routes listed in
-        ``STATIC_API_TOKEN_ROUTES``.
+        `STATIC_API_TOKEN_ROUTES`.
     """
     monkeypatch.setenv("TEST_IDMS_STATIC_API_TOKEN", _IDMS_STATIC_API_TEST_TOKEN)
     app.config["STATIC_API_TOKEN_USER_ID"] = admin.user.id

@@ -29,6 +29,7 @@ import pytest
 from flask import Flask
 from invenio_app.factory import create_api as create_bootstrap_app
 from invenio_db import db as db_
+from invenio_files_rest.models import Location
 from invenio_queues import current_queues
 from invenio_search.engine import search as search_engine
 from invenio_search.proxies import current_search, current_search_client
@@ -146,6 +147,28 @@ def database(bootstrap_app: Flask) -> Generator[object, None, None]:
     with bootstrap_app.app_context():
         db_.session.remove()
         db_.drop_all()
+
+
+@pytest.fixture(scope="session")
+def location(
+    bootstrap_app: Flask,
+    database: object,
+) -> Generator[Location, None, None]:
+    """Create the default files `Location` used by tests.
+
+    Yields:
+        The created default `Location`.
+    """
+    uri = tempfile.mkdtemp()
+    location_obj = Location(name="pytest-location", uri=uri, default=True)
+
+    with bootstrap_app.app_context():
+        db_.session.add(location_obj)
+        db_.session.commit()
+
+    yield location_obj
+
+    shutil.rmtree(uri, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")

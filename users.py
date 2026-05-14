@@ -1,12 +1,13 @@
 # Part of KCWorks Test Fixtures
 #
-# Copyright (C) 2025 MESH Research.
+# Copyright (C) 2025-2026 MESH Research.
 #
 # KCWorks Test Fixtures is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 """User related pytest fixtures for testing."""
 
+import datetime
 from collections.abc import Callable
 from typing import Any
 
@@ -314,6 +315,7 @@ def user_factory(
             password=password,  # already hashed downstream
         )
         u.create(app, db)
+        u.user.verified_at = datetime.datetime.now(datetime.UTC)
 
         if token:
             u.allowed_token = Token.create_personal(

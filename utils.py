@@ -59,7 +59,7 @@ def replace_value_in_nested_dict(d: dict, path: str, new_value: Any) -> dict | b
     :param new_value: The new value to set.
 
     Returns:
-        The updated dictionary, or ``False`` when traversal fails.
+        The updated dictionary, or `False` when traversal fails.
     """
     keys = path.split("|")
     current = d

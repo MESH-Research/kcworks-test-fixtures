@@ -25,7 +25,7 @@ def ensure_shared_vocabulary_type(
     """Ensure a shared vocabulary type and its records exist.
 
     Args:
-        type_id: Vocabulary type id, e.g. ``"communitytypes"``.
+        type_id: Vocabulary type id, e.g. `"communitytypes"`.
         pid_type: PID type id for the shared vocabulary type.
         rows: Vocabulary records to ensure.
         refresh: Whether to refresh the shared vocabulary index.
@@ -59,7 +59,7 @@ def ensure_service_vocabulary(
     """Ensure a dedicated service-backed vocabulary exists.
 
     Args:
-        service_name: Service registry key, e.g. ``"affiliations"``.
+        service_name: Service registry key, e.g. `"affiliations"`.
         rows: Vocabulary records to ensure.
         record_cls: Record API class with an index to refresh.
         refresh: Whether to refresh the service index after new records.
@@ -91,8 +91,8 @@ def rebuild_shared_vocabulary_type(
     """Reindex one vocabulary type from the shared vocabularies index.
 
     Args:
-        type_id: Vocabulary type id, e.g. ``"communitytypes"``.
-        pid_type: Optional pid type id, e.g. ``"comtyp"``.
+        type_id: Vocabulary type id, e.g. `"communitytypes"`.
+        pid_type: Optional pid type id, e.g. `"comtyp"`.
         refresh: Whether to refresh the index after rebuilding.
 
     Returns:
@@ -141,9 +141,9 @@ def rebuild_service_vocabulary(
     """Reindex one dedicated service-backed vocabulary.
 
     Args:
-        service_name: Service registry key, e.g. ``"affiliations"``.
-        record_cls: Record API class, e.g. ``Affiliation``.
-        index_alias: Logical alias name for ``current_search.create(...)``.
+        service_name: Service registry key, e.g. `"affiliations"`.
+        record_cls: Record API class, e.g. `Affiliation`.
+        index_alias: Logical alias name for `current_search.create(...)`.
         refresh: Whether to refresh the index after rebuilding.
 
     Returns:

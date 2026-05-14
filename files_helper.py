@@ -86,7 +86,7 @@ class FilesHelper:
         """Delete a file from the record.
 
         Returns:
-            ``True`` when the file deletion completed.
+            `True` when the file deletion completed.
         """
         if files_service is None:
             files_service = self.files_service
