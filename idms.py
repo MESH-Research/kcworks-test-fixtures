@@ -206,6 +206,9 @@ def idms_static_api_auth(
     config) and `STATIC_API_TOKEN_USER_ID` to `admin` so the before-request
     hook matches production KCWorks behaviour.
 
+    We try first to use COMMONS_PROFILES_API_TOKEN because that's a de facto token
+    name in the parent project test context.
+
     Args:
         app: Flask application.
         admin: User whose id is configured as the static-token principal.
@@ -216,9 +219,12 @@ def idms_static_api_auth(
         Headers dict suitable for requests to routes listed in
         `STATIC_API_TOKEN_ROUTES`.
     """
-    monkeypatch.setenv("TEST_IDMS_STATIC_API_TOKEN", _IDMS_STATIC_API_TEST_TOKEN)
+    static_token = os.getenv("COMMONS_PROFILES_API_TOKEN")
+    if not static_token:
+        static_token = _IDMS_STATIC_API_TEST_TOKEN
+    monkeypatch.setenv("TEST_IDMS_STATIC_API_TOKEN", static_token)
     app.config["STATIC_API_TOKEN_USER_ID"] = admin.user.id
-    return {"Authorization": f"Bearer {_IDMS_STATIC_API_TEST_TOKEN}"}
+    return {"Authorization": f"Bearer {static_token}"}
 
 
 IDMS_MEMBERS_RESPONSE = {
