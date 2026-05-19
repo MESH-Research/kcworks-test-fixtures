@@ -1,11 +1,11 @@
-# Part of Knowledge Commons Works
+# Part of KCWorks Test Fixtures
 # Copyright (C) 2024-2025 MESH Research
 #
-# KCWorks is free software; you can redistribute it and/or modify it
+# This code is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
 #
-# KCWorks is an extended instance of InvenioRDM:
-# Copyright (C) 2019-2024 CERN.
+# Based on InvenioRDM:
+# Copyright (C) 2019-2025 CERN.
 # Copyright (C) 2019-2024 Northwestern University.
 # Copyright (C) 2021-2024 TU Wien.
 # Copyright (C) 2023-2024 Graz University of Technology.

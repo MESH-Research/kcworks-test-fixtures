@@ -1,8 +1,8 @@
-# Part of Knowledge Commons Works
-# Copyright (C) 2023, 2024 Knowledge Commons
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2023-2025, MESH Research
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the MIT License
+# This code is free software; you can redistribute it and/or modify
+# it under the terms of the MIT License; see LICENSE file for more details.
 
 """Pytest fixtures for custom fields."""
 

@@ -1,11 +1,11 @@
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2023-2025, MESH Research
 #
-# Copyright (C) 2023 CERN.
-#
-# Invenio-RDM-Records is free software; you can redistribute it and/or modify
+# This code is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
-"""Metadata fields for meeting.
+"""Metadata field UI configuration for meeting.
 
-Implements the following fields:
+Implements UI configuration for the following fields:
 - meeting:meeting.title
 - meeting:meeting.acronym
 - meeting:meeting.dates
@@ -13,7 +13,6 @@ Implements the following fields:
 - meeting:meeting.url
 - meeting:meeting.session
 - meeting:meeting.session_part
-
 """
 
 from invenio_i18n import lazy_gettext as _

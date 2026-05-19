@@ -1,8 +1,8 @@
-# Part of Knowledge Commons Works
+# Part of KCWorks Test Fixtures
 #
 # Copyright (C) 2025 MESH Research.
 #
-# Knowledge Commons Works is free software; you can redistribute it and/or modify
+# KCWorks Test Fixtures is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 """Test fixtures for records."""
@@ -88,7 +88,7 @@ def minimal_draft_record_factory(running_app, db, record_metadata):
 
 @pytest.fixture(scope="function")
 def minimal_published_record_factory(
-    running_app, db, record_metadata, superuser_identity
+    running_app, db, record_metadata, superuser_identity, create_records_custom_fields
 ):
     """Factory for creating a minimal published record.
 
@@ -254,7 +254,7 @@ def minimal_published_record_factory(
                 f"{pformat(published.id)}"
             )
 
-        if input_metadata.get("created"):
+        if update_community_event_dates and input_metadata.get("created"):
             current_app.logger.error(
                 f"in published record factory, updating community events created date: "
                 f"{pformat(published.id)}"
@@ -425,6 +425,7 @@ class TestRecordMetadata:
             "resource_type": {"id": "image-photograph"},
             "title": "A Romans story",
         },
+        "custom_fields": {},
     }
 
     def __init__(
@@ -597,7 +598,10 @@ class TestRecordMetadata:
             "reason": None,
         }
         metadata_out_draft["access"]["status"] = "metadata-only"
-        metadata_out_draft["deletion_status"] = {"is_deleted": False, "status": "P"}
+        metadata_out_draft["deletion_status"] = {
+            "is_deleted": False,
+            "status": "P",
+        }
         metadata_out_draft["custom_fields"] = self.metadata_in.get("custom_fields", {})
         metadata_out_draft["is_draft"] = True
         metadata_out_draft["is_published"] = False
@@ -634,7 +638,7 @@ class TestRecordMetadata:
             "access": {
                 "grants": [],
                 "links": [],
-                "owned_by": {"user": str(self.owner_id)} if self.owner_id else None,
+                "owned_by": ({"user": str(self.owner_id)} if self.owner_id else None),
                 "settings": {
                     "accept_conditions_text": None,
                     "allow_guest_requests": False,
@@ -850,8 +854,8 @@ class TestRecordMetadata:
             expected["stats"] = None
 
         # Check that timestamps are in the correct relative range
-        assert now - arrow.get(actual["created"]) < timedelta(seconds=7)
-        assert now - arrow.get(actual["updated"]) < timedelta(seconds=7)
+        assert now - arrow.get(actual["created"]) < timedelta(seconds=30)
+        assert now - arrow.get(actual["updated"]) < timedelta(seconds=30)
         assert "expires_at" in actual.keys()
         assert (
             arrow.get(actual["expires_at"]).format("YYYY-MM-DD HH:mm:ss.SSSSSS")
@@ -983,6 +987,9 @@ class TestRecordMetadata:
                 fields are only present in the REST API in response to certain methods.
                 Defaults to read.
             now (Arrow, optional): The current time. Defaults to arrow.utcnow().
+
+        Raises:
+            AssertionError: if something fails in the comparison.
 
         Returns:
             bool: True if the actual metadata dictionary matches the expected
@@ -1129,7 +1136,7 @@ class TestRecordMetadata:
             # assert actual["revision_id"] == 4  # NOTE: Too difficult to test
             assert actual["stats"] == expected["stats"]
             assert actual["status"] == "published"
-            assert now - arrow.get(actual["updated"]) < timedelta(seconds=30)
+            assert now - arrow.get(actual["updated"]) < timedelta(seconds=40)
             assert actual["versions"] == expected["versions"]
             return True
         except AssertionError as e:

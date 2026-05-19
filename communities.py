@@ -1,13 +1,15 @@
-# Part of Knowledge Commons Works
-# Copyright (C) 2023, 2024 Knowledge Commons
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2023-2025, MESH Research
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the MIT License
+# This code is free software; you can redistribute it and/or modify
+# it under the terms of the MIT License; see LICENSE file for more details.
 
 """Pytest fixtures for communities."""
 
+import os
 import traceback
 from collections.abc import Callable
+from pprint import pformat
 
 import marshmallow as ma
 import pytest
@@ -19,12 +21,14 @@ from invenio_access.utils import get_identity
 from invenio_accounts.proxies import current_accounts
 from invenio_communities.communities.records.api import Community
 from invenio_communities.proxies import current_communities
+from invenio_db import db
 from invenio_rdm_records.proxies import current_rdm_records, current_rdm_records_service
 from invenio_rdm_records.records.api import RDMRecord
 from invenio_rdm_records.utils import get_or_create_user
 from invenio_records_resources.services.uow import RecordCommitOp, UnitOfWork
 from invenio_requests.proxies import current_requests_service
 from invenio_search.proxies import current_search_client
+from sqlalchemy.exc import IntegrityError
 
 
 def add_community_to_record(
@@ -58,22 +62,42 @@ def add_community_to_record(
 
         uow.commit()
 
-    # Get the updated record from the database
     updated_record = current_rdm_records_service.record_cls.get_record(record.id)
+    current_app.logger.debug(
+        f"Updated record communities: {pformat(updated_record.parent.communities.ids)}"
+    )
 
-    # Now index the updated record
     current_rdm_records_service.indexer.index(
         updated_record, arguments={"refresh": True}
     )
 
 
 def make_community_member(user_id: int, role: str, community_id: str) -> None:
-    """Make a member of a community."""
-    current_communities.service.members.add(
-        system_identity,
-        community_id,
-        data={"members": [{"type": "user", "id": str(user_id)}], "role": role},
-    )
+    """Make a member of a community.
+
+    Raises:
+        IntegrityError: If the creation of the community member fails.
+    """
+    service = current_communities.service.members
+    with UnitOfWork() as uow:
+        try:
+            member = service.record_cls.create(
+                {},
+                community_id=community_id,
+                role=role,
+                active=True,
+                visible=True,
+                request_id=None,
+                user_id=user_id,
+            )
+        except IntegrityError as e:
+            raise e
+
+        uow.register(
+            RecordCommitOp(member, indexer=current_communities.service.members.indexer)
+        )
+        uow.commit()
+
     Community.index.refresh()
 
 
@@ -86,25 +110,25 @@ def communities_links_factory():
     """
 
     def assemble_links(community_id: str, slug: str):
+        base_url = os.getenv("TEST_BASE_URL", "https://localhost")
+
         return {
-            "featured": f"https://localhost/api/communities/{community_id}/featured",
-            "invitations": (
-                f"https://localhost/api/communities/{community_id}/invitations"
-            ),
-            "logo": f"https://localhost/api/communities/{community_id}/logo",
-            "members": f"https://localhost/api/communities/{community_id}/members",
+            "featured": f"{base_url}/api/communities/{community_id}/featured",
+            "invitations": f"{base_url}/api/communities/{community_id}/invitations",
+            "logo": f"{base_url}/api/communities/{community_id}/logo",
+            "members": f"{base_url}/api/communities/{community_id}/members",
             "membership_requests": (
-                f"https://localhost/api/communities/{community_id}/membership-requests"
+                f"{base_url}/api/communities/{community_id}/membership-requests"
             ),
             "public_members": (
-                f"https://localhost/api/communities/{community_id}/members/public"
+                f"{base_url}/api/communities/{community_id}/members/public"
             ),
-            "records": f"https://localhost/api/communities/{community_id}/records",
-            "rename": f"https://localhost/api/communities/{community_id}/rename",
-            "requests": f"https://localhost/api/communities/{community_id}/requests",
-            "self": f"https://localhost/api/communities/{community_id}",
-            "self_html": f"https://localhost/collections/{slug}",
-            "settings_html": f"https://localhost/collections/{slug}/settings",
+            "records": f"{base_url}/api/communities/{community_id}/records",
+            "rename": f"{base_url}/api/communities/{community_id}/rename",
+            "requests": f"{base_url}/api/communities/{community_id}/requests",
+            "self": f"{base_url}/api/communities/{community_id}",
+            "self_html": f"{base_url}/collections/{slug}",
+            "settings_html": f"{base_url}/collections/{slug}/settings",
         }
 
     return assemble_links
@@ -220,7 +244,11 @@ def group_communities_data_factory():
 
 @pytest.fixture(scope="function")
 def minimal_community_factory(
-    app, db, user_factory, create_communities_custom_fields, requests_mock, monkeypatch
+    app,
+    user_factory,
+    create_communities_custom_fields,
+    requests_mock,
+    monkeypatch,
 ):
     """Create a minimal community for testing.
 
@@ -254,7 +282,12 @@ def minimal_community_factory(
         metadata = metadata or {}
         access = access or {}
         custom_fields = custom_fields or {}
-        members = members or {"reader": [], "curator": [], "manager": [], "owner": []}
+        members = members or {
+            "reader": [],
+            "curator": [],
+            "manager": [],
+            "owner": [],
+        }
 
         # Mock the search API for the community
         if mock_search_api:
@@ -349,9 +382,10 @@ def minimal_community_factory(
                 )
         Community.index.refresh()
 
-        return current_communities.service.read(
+        return_item = current_communities.service.read(
             identity=system_identity, id_=community_id
         )
+        return return_item
 
     return create_minimal_community
 

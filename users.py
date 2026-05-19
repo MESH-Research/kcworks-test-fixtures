@@ -1,26 +1,32 @@
-# Part of Knowledge Commons Works
+# Part of KCWorks Test Fixtures
 #
 # Copyright (C) 2025 MESH Research.
 #
-# Knowledge Commons Works is free software; you can redistribute it and/or modify
+# KCWorks Test Fixtures is free software; you can redistribute it and/or modify
 # it under the terms of the MIT License; see LICENSE file for more details.
 
 """User related pytest fixtures for testing."""
 
-import os
 from collections.abc import Callable
+from typing import Any
 
 import pytest
+from flask import current_app
 from flask_login import login_user
 from flask_principal import AnonymousIdentity, Identity
 from flask_security.utils import hash_password
 from invenio_access.models import ActionRoles, Role
-from invenio_access.permissions import any_user, authenticated_user, superuser_access
+from invenio_access.permissions import (
+    any_user,
+    authenticated_user,
+    superuser_access,
+)
 from invenio_access.utils import get_identity
 from invenio_accounts.models import User
 from invenio_accounts.proxies import current_accounts
 from invenio_accounts.testutils import login_user_via_session
 from invenio_administration.permissions import administration_access_action
+from invenio_db import db
 from invenio_oauth2server.models import Token
 from invenio_oauthclient.models import UserIdentity
 from pytest_invenio.fixtures import UserFixtureBase
@@ -52,57 +58,186 @@ def anon_identity():
 
 
 @pytest.fixture(scope="function")
-def mock_user_data_api(requests_mock) -> Callable:
+def mock_user_data_api(requests_mock, app) -> Callable:
     """Mock the user data api.
+
+    This fixture is context-aware:
+    - If IDMS_BASE_API_URL config exists, uses main project's complete implementation
+    - Otherwise, returns a no-op function for contexts without IDMS (e.g.,
+      stats-dashboard)
 
     Returns:
         Callable: Mock API call function.
     """
+    # Check if IDMS config is available
+    try:
+        with app.app_context():
+            base_url = current_app.config.get("IDMS_BASE_API_URL")
+            has_idms = bool(base_url)
+    except (RuntimeError, AttributeError):
+        has_idms = False
 
-    def mock_api_call(saml_id: str, mock_remote_data: dict) -> Matcher:
-        protocol = os.environ.get("INVENIO_COMMONS_API_REQUEST_PROTOCOL", "https")  # noqa: E501
-        base_url = f"{protocol}://hcommons-dev.org/wp-json/commons/v1/users"
-        remote_url = f"{base_url}/{saml_id}"
-        mock_adapter = requests_mock.get(
-            remote_url,
-            json=mock_remote_data,
-        )
-        return mock_adapter
+    if has_idms:
+        # Main project's complete implementation with two endpoints
+        def mock_api_call(
+            kc_username: str,
+            oauth_id: str,
+            mock_remote_data_subs: dict,
+            mock_remote_data_members: dict,
+        ) -> tuple[Matcher | None, Matcher | None]:
+            base_url = current_app.config.get("IDMS_BASE_API_URL")
 
-    return mock_api_call
+            mock_adapter_members = requests_mock.get(
+                f"{base_url}members/{kc_username}",
+                json=mock_remote_data_members,
+            )
+            mock_adapter_subs = requests_mock.get(
+                f"{base_url}subs/?sub={oauth_id}",
+                json=mock_remote_data_subs,
+            )
+            return mock_adapter_subs, mock_adapter_members
+
+        return mock_api_call
+    else:
+        # No-op for contexts without IDMS (e.g., stats-dashboard)
+        def mock_api_call(
+            kc_username: str,
+            oauth_id: str,
+            mock_remote_data_subs: dict,
+            mock_remote_data_members: dict,
+        ) -> tuple[Matcher | None, Matcher | None]:
+            """No-op mock for contexts without IDMS.
+
+            Returns:
+                tuple: None values for contexts without IDMS.
+            """
+            return None, None
+
+        return mock_api_call
 
 
 @pytest.fixture(scope="function")
-def user_data_to_remote_data(requests_mock):
+def user_data_to_remote_data(requests_mock, app):
     """Factory fixture providing function to convert user data format.
+
+    This fixture is context-aware:
+    - If IDMS_BASE_API_URL config exists, returns main project's complete implementation
+    - Otherwise, returns a no-op function for contexts without IDMS (e.g.,
+      stats-dashboard)
 
     Returns:
         function: Function to convert user data to remote data format.
     """
+    # Check if IDMS config is available
+    try:
+        with app.app_context():
+            base_url = current_app.config.get("IDMS_BASE_API_URL")
+            has_idms = bool(base_url)
+    except (RuntimeError, AttributeError):
+        has_idms = False
 
-    def convert_user_data_to_remote_data(
-        saml_id: str, email: str, user_data: dict
-    ) -> dict[str, str | list[dict[str, str]]]:
-        """Convert user fixture data to format for remote data.
+    if has_idms:
+        # Main project's complete implementation with two formats
+        def convert_user_data_to_remote_data(
+            kc_username: str, email: str, user_data: dict, oauth_id: str = ""
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
+            """Convert user fixture data to format for remote data.
 
-        Returns:
-            dict: Converted user data in remote format.
-        """
-        mock_remote_data = {
-            "username": saml_id,
-            "email": email,
-            "name": user_data.get("name", ""),
-            "first_name": user_data.get("first_name", ""),
-            "last_name": user_data.get("last_name", ""),
-            "institutional_affiliation": user_data.get("institutional_affiliation", ""),
-            "orcid": user_data.get("orcid", ""),
-            "preferred_language": user_data.get("preferred_language", ""),
-            "time_zone": user_data.get("time_zone", ""),
-            "groups": user_data.get("groups", ""),
-        }
-        return mock_remote_data
+            Returns:
+                tuple[dict, dict]: Returns two dictionaries with the same user data:
+                    [0] in the shape returned from the "subs" endpoint and [1] in
+                    the shape returned from the "members" endpoint.
+            """
+            if user_data.get("first_name", "") != "":
+                mock_remote_data = {
+                    "data": [
+                        {
+                            "sub": oauth_id if oauth_id else user_data.get("oauth_id"),
+                            "profile": {
+                                "username": kc_username,
+                                "email": email,
+                                "name": user_data.get("name", ""),
+                                "first_name": user_data.get("first_name", ""),
+                                "last_name": user_data.get("last_name", ""),
+                                "institutional_affiliation": user_data.get(
+                                    "institutional_affiliation", ""
+                                ),
+                                "orcid": user_data.get("orcid", ""),
+                                "preferred_language": user_data.get(
+                                    "preferred_language", ""
+                                ),
+                                "time_zone": user_data.get("time_zone", ""),
+                                "groups": user_data.get("groups", ""),
+                                "memberships": [],
+                            },
+                            "idp_name": "Michigan State University",
+                        }
+                    ],
+                    "next": None,
+                    "previous": None,
+                    "meta": {"authorized": True},
+                }
+            else:
+                try:
+                    profile = user_data.get("data", [])[0].get("profile", {})
+                except IndexError:
+                    profile = {}
 
-    return convert_user_data_to_remote_data
+                mock_remote_data = {
+                    "data": [
+                        {
+                            "sub": "user1",
+                            "profile": {
+                                "username": oauth_id,
+                                "email": email,
+                                "name": profile.get("name", ""),
+                                "first_name": profile.get("first_name", ""),
+                                "last_name": profile.get("last_name", ""),
+                                "institutional_affiliation": profile.get(
+                                    "institutional_affiliation", ""
+                                ),
+                                "orcid": profile.get("orcid", ""),
+                                "preferred_language": profile.get(
+                                    "preferred_language", ""
+                                ),
+                                "time_zone": profile.get("time_zone", ""),
+                                "groups": profile.get("groups", []),
+                                "memberships": [],
+                            },
+                            "idp_name": "Michigan State University",
+                        }
+                    ],
+                    "next": None,
+                    "previous": None,
+                    "meta": {"authorized": True},
+                }
+
+            profile_data = mock_remote_data.get("data", [])
+            if (
+                profile_data
+                and isinstance(profile_data, list)
+                and len(profile_data) > 0
+            ):
+                profile = profile_data[0].get("profile", {})
+            else:
+                profile = {}
+            mock_remote_data_members = {"results": profile}
+            return mock_remote_data, mock_remote_data_members
+
+        return convert_user_data_to_remote_data
+    else:
+        # No-op for contexts without IDMS (e.g., stats-dashboard)
+        def convert_user_data_to_remote_data(
+            kc_username: str, email: str, user_data: dict, oauth_id: str = ""
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
+            """No-op converter for contexts without IDMS.
+
+            Returns:
+                tuple[dict, dict]: Empty dictionaries for contexts without IDMS.
+            """
+            return {}, {}
+
+        return convert_user_data_to_remote_data
 
 
 class AugmentedUserFixture(UserFixtureBase):
@@ -111,14 +246,14 @@ class AugmentedUserFixture(UserFixtureBase):
     def __init__(self, *args, **kwargs):
         """Initialize the AugmentedUserFixture."""
         super().__init__(*args, **kwargs)
-        self.mock_adapter: Matcher | None = None
+        self.mock_adapter_members: Matcher | None = None
+        self.mock_adapter_subs: Matcher | None = None
         self.allowed_token: str | None = None
 
 
 @pytest.fixture(scope="function")
 def user_factory(
     app,
-    db,
     admin_role_need,
     requests_mock,
     mock_user_data_api,
@@ -135,10 +270,10 @@ def user_factory(
         password: str = "password",
         token: bool = False,
         admin: bool = False,
-        saml_src: str | None = "knowledgeCommons",
-        saml_id: str | None = "myuser",
+        oauth_src: str | None = "cilogon",
+        oauth_id: str | None = "1234",
         orcid: str | None = "",
-        kc_username: str | None = "",
+        kc_username: str | None = "myuser",
         new_remote_data: dict | None = None,
     ) -> AugmentedUserFixture:
         """Create an augmented pytest-invenio user fixture.
@@ -148,8 +283,10 @@ def user_factory(
             password: The password of the user.
             token: Whether the user should have a token.
             admin: Whether the user should have admin access.
-            saml_src: The source of the user's saml authentication.
-            saml_id: The user's ID for saml authentication.
+            oauth_src: The source of the user's oauth authentication.
+            oauth_id: The user's ID for oauth authentication.
+            kc_username: The user's username on Knowledge Commons.
+            new_remote_data: The user's remote data for mocking api responses.
 
         Returns:
             The created UserFixture object. This has the following attributes:
@@ -161,12 +298,34 @@ def user_factory(
         """
         new_remote_data = new_remote_data or {}
 
-        # Mock remote data that's already in the user fixture.
-        mock_remote_data = user_data_to_remote_data(
-            saml_id, new_remote_data.get("email") or email, new_remote_data
-        )
-        # Mock the remote api call.
-        mock_adapter = mock_user_data_api(saml_id, mock_remote_data)
+        # Check if IDMS config is available to determine which format to use
+        try:
+            with app.app_context():
+                base_url = current_app.config.get("IDMS_BASE_API_URL")
+                has_idms = bool(base_url)
+        except (RuntimeError, AttributeError):
+            has_idms = False
+
+        # Mock remote data that's already in the user fixture (only if IDMS available)
+        if has_idms:
+            # Main project's complete implementation with two endpoints
+            mock_remote_data_subs, mock_remote_data_members = user_data_to_remote_data(
+                kc_username or oauth_id or "",
+                new_remote_data.get("email") or email,
+                new_remote_data,
+                oauth_id,
+            )
+            # Mock the remote api call.
+            mock_adapter_subs, mock_adapter_members = mock_user_data_api(
+                kc_username or oauth_id or "",
+                oauth_id or "",
+                mock_remote_data_subs,
+                mock_remote_data_members,
+            )
+        else:
+            # No-op for contexts without IDMS (e.g., stats-dashboard)
+            mock_adapter_subs = None
+            mock_adapter_members = None
 
         if not orcid and new_remote_data.get("orcid"):
             orcid = new_remote_data.get("orcid")
@@ -186,9 +345,7 @@ def user_factory(
 
         if admin:
             datastore = app.extensions["security"].datastore
-            _, role = datastore._prepare_role_modify_args(
-                u.user, "administration-access"
-            )
+            _, role = datastore._prepare_role_modify_args(u.user, "administration")
             datastore.add_role_to_user(u.user, role)
 
         if u.user and orcid:
@@ -201,16 +358,22 @@ def user_factory(
             profile["identifier_kc_username"] = kc_username
             u.user.user_profile = profile
 
-        if u.user and saml_src and saml_id:
-            u.user.username = f"{saml_src}-{saml_id}"
-            profile = u.user.user_profile
-            profile["identifier_kc_username"] = saml_id
-            u.user.user_profile = profile
-            UserIdentity.create(u.user, saml_src, saml_id)
-            u.mock_adapter = mock_adapter
+        if u.user and oauth_src and oauth_id:
+            if has_idms:
+                # Main project's complete OAuth setup
+                u.user.username = f"knowledgeCommons-{oauth_id}"
+                u.mock_adapter_members = mock_adapter_members
+                u.mock_adapter_subs = mock_adapter_subs
+                UserIdentity.create(u.user, oauth_src, oauth_id)
+            else:
+                # Minimal setup for contexts without IDMS (e.g., stats-dashboard)
+                u.user.username = f"test-{email.split('@')[0]}"
+                # OAuth-related attributes remain None (no-op)
+
+        u.user.mock = True
 
         current_accounts.datastore.commit()
-        db.session.commit()
+        # db.session.commit()
 
         return u
 
@@ -229,8 +392,8 @@ def admin_role_need(db):
     Returns:
         Role: The created admin role.
     """
-    role = Role(name="administration-access")
-    db.session.add(role)
+    role = current_accounts.datastore.find_or_create_role(name="administration")
+    current_accounts.datastore.commit()
 
     action_role = ActionRoles.create(action=administration_access_action, role=role)
     db.session.add(action_role)
@@ -251,8 +414,8 @@ def admin(user_factory) -> AugmentedUserFixture:
         password="password",
         admin=True,
         token=True,
-        saml_src="knowledgeCommons",
-        saml_id="admin",
+        oauth_src="knowledgeCommons",
+        oauth_id="admin",
     )
 
     return u
@@ -305,25 +468,37 @@ def user1_data() -> dict:
         dict: User data dictionary.
     """
     return {
-        "saml_id": "user1",
-        "email": "user1@inveniosoftware.org",
-        "name": "User Number One",
-        "first_name": "User Number",
-        "last_name": "One",
-        "institutional_affiliation": "Michigan State University",
-        "orcid": "0000-0002-1825-0097",  # official dummy orcid
-        "preferred_language": "en",
-        "time_zone": "UTC",
-        "groups": [
-            {"id": 12345, "name": "awesome-mock", "role": "administrator"},
-            {"id": 67891, "name": "admin", "role": "member"},
+        "data": [
+            {
+                "sub": "user1",
+                "profile": {
+                    "oauth_id": "1",
+                    "username": "user1",
+                    "email": "user1@inveniosoftware.org",
+                    "name": "User Number One",
+                    "first_name": "User Number",
+                    "last_name": "One",
+                    "institutional_affiliation": "Michigan State University",
+                    "orcid": "0000-0002-1825-0097",  # official dummy orcid
+                    "preferred_language": "en",
+                    "time_zone": "UTC",
+                    "groups": [
+                        {"id": 12345, "name": "awesome-mock", "role": "admin"},
+                        {"id": 67891, "name": "admin", "role": "member"},
+                    ],
+                },
+            }
         ],
+        "next": None,
+        "previous": None,
+        "meta": {"authorized": True},
     }
 
 
 user_data_set = {
     "joanjett": {
-        "saml_id": "joanjett",
+        "oauth_id": "joanjett1",
+        "kc_username": "joanjett",
         "email": "jj@inveniosoftware.com",
         "name": "Joan Jett",
         "first_name": "Joan",
@@ -333,7 +508,8 @@ user_data_set = {
         "groups": [],
     },
     "user1": {
-        "saml_id": "user1",
+        "oauth_id": "id1",
+        "kc_username": "user1",
         "email": "user1@inveniosoftware.org",
         "name": "User Number One",
         "first_name": "User Number",
@@ -348,7 +524,8 @@ user_data_set = {
         ],
     },
     "user2": {
-        "saml_id": "janedoe",
+        "oauth_id": "doe2",
+        "kc_username": "janedoe",
         "email": "jane.doe@msu.edu",
         "name": "Jane Doe",
         "first_name": "Jane",
@@ -357,7 +534,8 @@ user_data_set = {
         "orcid": "0000-0002-1825-0097",  # official dummy orcid
     },
     "user3": {
-        "saml_id": "gihctester",
+        "oauth_id": "gihctester3",
+        "kc_username": "gihctester",
         "email": "ghosthc@email.ghostinspector.com",
         # FIXME: Unobfuscated email not sent by
         # KC because no email marked as official.
@@ -367,103 +545,116 @@ user_data_set = {
         "last_name": "Hc",
         "groups": [
             {"id": 1004089, "name": "Teaching and Learning", "role": "member"},
-            {"id": 1004090, "name": "Humanities, Arts, and Media", "role": "member"},
+            {
+                "id": 1004090,
+                "name": "Humanities, Arts, and Media",
+                "role": "member",
+            },
             {
                 "id": 1004091,
                 "name": "Technology, Networks, and Sciences",
                 "role": "member",
             },
-            {"id": 1004092, "name": "Social and Political Issues", "role": "member"},
+            {
+                "id": 1004092,
+                "name": "Social and Political Issues",
+                "role": "member",
+            },
             {
                 "id": 1004093,
                 "name": "Educational and Cultural Institutions",
                 "role": "member",
             },
-            {"id": 1004094, "name": "Publishing and Archives", "role": "member"},
+            {
+                "id": 1004094,
+                "name": "Publishing and Archives",
+                "role": "member",
+            },
             {
                 "id": 1004651,
                 "name": "Hidden Testing Group New Name",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004939,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004940,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004941,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004942,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004943,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004944,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004945,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004946,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004947,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004948,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004949,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004950,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004951,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004952,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
             {
                 "id": 1004953,
                 "name": "GI Hidden Group for testing",
-                "role": "administrator",
+                "role": "admin",
             },
         ],
     },
     "user4": {
-        "saml_id": "ghostrjtester",
+        "oauth_id": "ghostrjtester4",
+        "kc_username": "ghostrjtester",
         "email": "jrghosttester@email.ghostinspector.com",
         "name": "Ghost Tester",
         "first_name": "Ghost",
@@ -496,7 +687,7 @@ def client_with_login(requests_mock, app):
             user: The user to log in.
 
         Returns:
-            None: This function doesn't return anything.
+            FlaskClient: The client with the user logged in.
         """
         login_user(user)
         login_user_via_session(client, email=user.email)

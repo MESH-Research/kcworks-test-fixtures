@@ -1,8 +1,8 @@
-# Part of Knowledge Commons Works
-# Copyright (C) 2023, 2024 Knowledge Commons
+# Part of KCWorks Test Fixtures
+# Copyright (C) 2023-2025, MESH Research
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the MIT License
+# This code is free software; you can redistribute it and/or modify
+# it under the terms of the MIT License; see LICENSE file for more details.
 
 """Pytest fixtures for files."""
 
@@ -18,7 +18,7 @@ def test_sample_files_folder():
     """Fixture allowing for flexible sample files location.
 
     Returns:
-        Path: Path to the sample files directory.
+        Path: The path to the sample files folder.
     """
     folderpath = Path(__file__).parent.parent / "helpers" / "sample_files"
     if not folderpath.exists():
@@ -30,7 +30,7 @@ def file_md5(bytes_object):
     """Calculate the MD5 hash of a bytes object.
 
     Returns:
-        str: MD5 hash as hexadecimal string.
+        str: The hexadecimal MD5 hash of the bytes object.
     """
     return hashlib.md5(bytes_object).hexdigest()
 
@@ -39,7 +39,7 @@ def build_file_links(record_id, base_api_url, filename):
     """Build the file links for a record.
 
     Returns:
-        dict: Dictionary containing file links.
+        dict: A dictionary containing file links (content and self).
     """
     extension = os.path.splitext(filename)[1]
 
