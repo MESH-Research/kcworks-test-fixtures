@@ -100,20 +100,12 @@ def ensure_awards_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def funders_v(app) -> int:
-    """Fixture to create the funder vocabulary records.
-
-    Returns:
-        int: The number of new funder entries created.
-    """
-    return ensure_funders_vocabulary()
+def funders_v(bootstrap_vocabularies) -> None:
+    """Fixture to ensure funder vocabulary records are available."""
+    return None
 
 
 @pytest.fixture(scope="module")
-def awards_v(app, funders_v: int) -> int:
-    """Funder vocabulary record.
-
-    Returns:
-        int: The number of new award entries created.
-    """
-    return ensure_awards_vocabulary()
+def awards_v(bootstrap_vocabularies, funders_v: None) -> None:
+    """Fixture to ensure award vocabulary records are available."""
+    return None

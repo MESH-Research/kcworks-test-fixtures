@@ -301,9 +301,9 @@ def ensure_resource_types_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def resource_type_v(app) -> None:
-    """Fixture to create the resource type vocabulary records."""
-    ensure_resource_types_vocabulary()
+def resource_type_v(bootstrap_vocabularies) -> None:
+    """Fixture to ensure resource type vocabulary records are available."""
+    return None
 
 
 @pytest.fixture(scope="function")

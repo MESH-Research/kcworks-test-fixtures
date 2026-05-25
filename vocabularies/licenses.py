@@ -117,6 +117,6 @@ def ensure_licenses_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def licenses_v(app) -> None:
-    """Fixture to create the licenses vocabulary records."""
-    ensure_licenses_vocabulary()
+def licenses_v(bootstrap_vocabularies) -> None:
+    """Fixture to ensure license vocabulary records are available."""
+    return None

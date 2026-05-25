@@ -48,6 +48,6 @@ def ensure_description_types_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def description_type_v(app) -> None:
-    """Title Type vocabulary record."""
-    ensure_description_types_vocabulary()
+def description_type_v(bootstrap_vocabularies) -> None:
+    """Fixture to ensure description type vocabulary records are available."""
+    return None

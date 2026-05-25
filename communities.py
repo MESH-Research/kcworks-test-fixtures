@@ -6,7 +6,6 @@
 
 """Pytest fixtures for communities."""
 
-import os
 import traceback
 from collections.abc import Callable
 from pprint import pformat
@@ -102,7 +101,7 @@ def make_community_member(user_id: int, role: str, community_id: str) -> None:
 
 
 @pytest.fixture(scope="function")
-def communities_links_factory():
+def communities_links_factory(app):
     """Create links for communities for testing.
 
     Returns:
@@ -110,25 +109,26 @@ def communities_links_factory():
     """
 
     def assemble_links(community_id: str, slug: str):
-        base_url = os.getenv("TEST_BASE_URL", "https://localhost")
+        api_base_url = app.config["SITE_API_URL"]
+        ui_base_url = app.config["SITE_UI_URL"]
 
         return {
-            "featured": f"{base_url}/api/communities/{community_id}/featured",
-            "invitations": f"{base_url}/api/communities/{community_id}/invitations",
-            "logo": f"{base_url}/api/communities/{community_id}/logo",
-            "members": f"{base_url}/api/communities/{community_id}/members",
+            "featured": f"{api_base_url}/communities/{community_id}/featured",
+            "invitations": f"{api_base_url}/communities/{community_id}/invitations",
+            "logo": f"{api_base_url}/communities/{community_id}/logo",
+            "members": f"{api_base_url}/communities/{community_id}/members",
             "membership_requests": (
-                f"{base_url}/api/communities/{community_id}/membership-requests"
+                f"{api_base_url}/communities/{community_id}/membership-requests"
             ),
             "public_members": (
-                f"{base_url}/api/communities/{community_id}/members/public"
+                f"{api_base_url}/communities/{community_id}/members/public"
             ),
-            "records": f"{base_url}/api/communities/{community_id}/records",
-            "rename": f"{base_url}/api/communities/{community_id}/rename",
-            "requests": f"{base_url}/api/communities/{community_id}/requests",
-            "self": f"{base_url}/api/communities/{community_id}",
-            "self_html": f"{base_url}/collections/{slug}/",
-            "settings_html": f"{base_url}/collections/{slug}/settings",
+            "records": f"{api_base_url}/communities/{community_id}/records",
+            "rename": f"{api_base_url}/communities/{community_id}/rename",
+            "requests": f"{api_base_url}/communities/{community_id}/requests",
+            "self": f"{api_base_url}/communities/{community_id}",
+            "self_html": f"{ui_base_url}/collections/{slug}/",
+            "settings_html": f"{ui_base_url}/collections/{slug}/settings",
         }
 
     return assemble_links
