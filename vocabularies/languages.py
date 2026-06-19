@@ -62,9 +62,9 @@ def ensure_languages_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def language_v(app) -> None:
-    """Fixture to create the language vocabulary records."""
-    ensure_languages_vocabulary()
+def language_v(bootstrap_vocabularies) -> None:
+    """Fixture to ensure language vocabulary records are available."""
+    return None
 
 
 @pytest.fixture(scope="function")

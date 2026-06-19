@@ -64,9 +64,9 @@ def ensure_creators_roles_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def creators_role_v(app) -> None:
-    """Fixture to create the creator role vocabulary record."""
-    ensure_creators_roles_vocabulary()
+def creators_role_v(bootstrap_vocabularies) -> None:
+    """Fixture to ensure creator role vocabulary records are available."""
+    return None
 
 
 def ensure_contributors_roles_vocabulary(refresh: bool = True) -> int:
@@ -84,6 +84,6 @@ def ensure_contributors_roles_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def contributors_role_v(app) -> None:
-    """Fixture to create the contributor role vocabulary records."""
-    ensure_contributors_roles_vocabulary()
+def contributors_role_v(bootstrap_vocabularies) -> None:
+    """Fixture to ensure contributor role vocabulary records are available."""
+    return None

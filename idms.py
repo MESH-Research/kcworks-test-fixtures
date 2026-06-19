@@ -9,6 +9,9 @@
 import os
 from typing import Any
 
+import inspect
+import time
+
 import pytest
 from flask import current_app, g, request
 from flask_principal import Identity, identity_changed
@@ -160,6 +163,45 @@ def register_idms_static_api_token_before_request(app) -> None:
     if _idms_static_api_token_before_request in funcs:
         return
     app.before_request_funcs[None] = [_idms_static_api_token_before_request] + funcs
+
+
+def _set_test_cookie(client, name: str, value: str) -> None:
+    """Set a cookie on a Flask test client across Werkzeug versions.
+
+    Werkzeug <= 2.2 uses ``set_cookie(server_name, key, value, ...)`` while
+    Werkzeug >= 2.3/3.x uses ``set_cookie(key, value, *, domain=...)``. The
+    KCWorks test suite currently runs on Werkzeug 2.2, but we detect the
+    signature so the helper keeps working if the pin changes.
+    """
+    params = list(inspect.signature(client.set_cookie).parameters)
+    if params and params[0] == "server_name":
+        # The default test client request host is ``localhost``; the cookie's
+        # server_name must match it so the cookie is sent with the request.
+        client.set_cookie("localhost", name, value)
+    else:
+        client.set_cookie(name, value)
+
+
+@pytest.fixture(scope="function")
+def bypass_silent_sso_redirect(running_app, client):
+    """Skip the silent-SSO before_request redirect for anonymous UI requests.
+
+    invenio-remote-user-data-kcworks registers a ``before_request`` handler that
+    redirects anonymous UI requests to the Profiles silent-login broker (a 302)
+    whenever its retry cookie is absent or expired. Tests that exercise UI routes
+    with an anonymous ``client`` would otherwise receive that redirect instead of
+    the target view. Seeding the retry cookie with a fresh timestamp makes
+    ``BrokerHelpers.ready_for_login_broker_check()`` return ``False`` so the hook
+    is a no-op.
+
+    Returns:
+        FlaskClient: The same test client, with the SSO retry cookie set.
+    """
+    cookie_name = running_app.app.config.get(
+        "SSO_BROKER_RETRY_COOKIE_NAME", "_sso_checked"
+    )
+    _set_test_cookie(client, cookie_name, str(int(time.time())))
+    return client
 
 
 @pytest.fixture

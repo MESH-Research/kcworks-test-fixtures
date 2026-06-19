@@ -587,13 +587,14 @@ class TestRecordMetadata:
             f"{base_url}/iiif/record:{record_id}/sequence/default"
         )
         if file_name:
+            thumbnail_base = f"{base_url}/iiif/record:{record_id}:{file_name}/full"
             links["thumbnails"] = {
-                "10": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E10,/0/default.jpg",
-                "100": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E100,/0/default.jpg",
-                "1200": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E1200,/0/default.jpg",
-                "250": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E250,/0/default.jpg",
-                "50": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E50,/0/default.jpg",
-                "750": f"https://localhost/api/iiif/record:{record_id}:{file_name}/full/%5E750,/0/default.jpg",
+                "10": f"{thumbnail_base}/%5E10,/0/default.jpg",
+                "100": f"{thumbnail_base}/%5E100,/0/default.jpg",
+                "1200": f"{thumbnail_base}/%5E1200,/0/default.jpg",
+                "250": f"{thumbnail_base}/%5E250,/0/default.jpg",
+                "50": f"{thumbnail_base}/%5E50,/0/default.jpg",
+                "750": f"{thumbnail_base}/%5E750,/0/default.jpg",
             }
 
         return links

@@ -57,9 +57,9 @@ def ensure_date_types_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def date_type_v(app) -> None:
-    """Fixture to create the date type vocabulary records."""
-    ensure_date_types_vocabulary()
+def date_type_v(bootstrap_vocabularies) -> None:
+    """Fixture to ensure date type vocabulary records are available."""
+    return None
 
 
 @pytest.fixture(scope="function")

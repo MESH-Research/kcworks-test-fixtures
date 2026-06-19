@@ -68,9 +68,9 @@ def ensure_community_types_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def community_type_v(app) -> None:
-    """Fixture to create the community type vocabulary records."""
-    ensure_community_types_vocabulary()
+def community_type_v(bootstrap_vocabularies) -> None:
+    """Fixture to ensure community type vocabulary records are available."""
+    return None
 
 
 def rebuild_community_types_vocabulary(refresh: bool = True) -> int:

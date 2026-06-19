@@ -58,9 +58,9 @@ def ensure_title_types_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def title_type_v(app) -> None:
-    """Title Type vocabulary record."""
-    ensure_title_types_vocabulary()
+def title_type_v(bootstrap_vocabularies) -> None:
+    """Fixture to ensure title type vocabulary records are available."""
+    return None
 
 
 @pytest.fixture(scope="function")

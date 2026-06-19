@@ -69,9 +69,9 @@ def ensure_affiliations_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def affiliations_v(app) -> None:
-    """Fixture function to create the affiliation vocabulary records."""
-    ensure_affiliations_vocabulary()
+def affiliations_v(bootstrap_vocabularies) -> None:
+    """Fixture function to ensure affiliation vocabulary records are available."""
+    return None
 
 
 def rebuild_affiliations_vocabulary(refresh: bool = True) -> int:
@@ -94,4 +94,5 @@ def rebuild_affiliations_vocabulary(refresh: bool = True) -> int:
 @pytest.fixture(scope="module")
 def rebuild_affiliations_v(app) -> None:
     """Fixture function to create the affiliation vocabulary records."""
-    rebuild_affiliations_vocabulary()
+    with app.app_context():
+        rebuild_affiliations_vocabulary()

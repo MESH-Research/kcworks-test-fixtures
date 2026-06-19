@@ -406,6 +406,6 @@ def ensure_subjects_vocabulary(refresh: bool = True) -> int:
 
 
 @pytest.fixture(scope="module")
-def subject_v(app, subjects_service: object) -> None:
-    """Fixture to create the subject vocabulary."""
-    ensure_subjects_vocabulary()
+def subject_v(bootstrap_vocabularies, subjects_service: object) -> None:
+    """Fixture to ensure subject vocabulary records are available."""
+    return None

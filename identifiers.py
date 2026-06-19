@@ -213,7 +213,7 @@ if not _IS_GENERIC_CONTEXT:
     })
     # KCWorks custom person/org identifier schemes
     test_config_identifiers["RDM_RECORDS_PERSONORG_SCHEMES"].update({
-        "hc_username": {
+        "kc_username": {
             "label": _("KC member"),
             "validator": always_valid,
             "datacite": "Other",
