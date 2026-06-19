@@ -8,12 +8,52 @@
 """Roles related pytest fixtures for testing."""
 
 import pytest
+from invenio_access.models import ActionRoles
+from invenio_access.permissions import superuser_access
 from invenio_accounts.proxies import current_accounts
+from invenio_administration.permissions import administration_access_action
+from invenio_db import db
+
+
+def _allow_action_role(action, role):
+    """Grant an access action to a role if not already granted.
+
+    Returns:
+        ActionRoles: The existing or newly created action-role grant.
+    """
+    for action_role in ActionRoles.query_by_action(action).all():
+        if action_role.role_id == role.id:
+            return action_role
+
+    action_role = ActionRoles.create(action=action, role=role)
+    db.session.add(action_role)
+    return action_role
 
 
 @pytest.fixture(scope="module")
 def admin_roles():
-    """Fixture to create admin roles."""
-    current_accounts.datastore.create_role(name="admin-moderator")
-    current_accounts.datastore.create_role(name="administration")
-    current_accounts.datastore.create_role(name="administration-moderation")
+    """Create baseline admin roles and their access-action mappings.
+
+    Besides creating the role rows, this links the ``administration`` role to
+    the ``administration-access`` action. Permission policies that use the
+    ``Administration`` generator emit an ``administration-access`` *action*
+    need; that need only expands to a concrete ``Need(role="administration")``
+    if the DB has this action->role mapping (mirroring production, where the
+    role is granted the action at instance setup).
+    """
+    datastore = current_accounts.datastore
+    for role_name in (
+        "admin-moderator",
+        "administration",
+        "administration-moderation",
+        "superuser-access",
+    ):
+        if datastore.find_role(role_name) is None:
+            datastore.create_role(name=role_name)
+    datastore.commit()
+
+    administration_role = datastore.find_role("administration")
+    superuser_role = datastore.find_role("superuser-access")
+    _allow_action_role(administration_access_action, administration_role)
+    _allow_action_role(superuser_access, superuser_role)
+    db.session.commit()
