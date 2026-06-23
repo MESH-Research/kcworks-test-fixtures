@@ -30,7 +30,6 @@ from flask import Flask
 from invenio_app.factory import create_api as create_bootstrap_app
 from invenio_db import db as db_
 from invenio_files_rest.models import Location
-from invenio_queues import current_queues
 from invenio_search.engine import search as search_engine
 from invenio_search.proxies import current_search, current_search_client
 from invenio_vocabularies.contrib.affiliations.api import Affiliation
@@ -123,8 +122,6 @@ def bootstrap_app(bootstrap_instance_path: str) -> Flask:
         The bootstrap Flask application.
     """
     app = create_bootstrap_app(**dict(test_config))
-    with app.app_context():
-        current_queues.declare()
     register_idms_static_api_token_before_request(app)
     return app
 
