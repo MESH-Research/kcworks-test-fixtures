@@ -18,8 +18,13 @@ from invenio_db import db
 def _allow_action_role(action, role):
     """Grant an access action to a role if not already granted.
 
-    Returns the (existing or newly created) ``ActionRoles`` row. The caller is
-    responsible for committing the session.
+    Args:
+        action: Access action to grant.
+        role: Role that should receive the action.
+
+    Returns:
+        The existing or newly created ``ActionRoles`` row. The caller is
+        responsible for committing the session.
     """
     for action_role in ActionRoles.query_by_action(action).all():
         if action_role.role_id == role.id:
