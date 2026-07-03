@@ -718,7 +718,7 @@ class TestRecordMetadata:
                 "provider": "datacite",
             },
             "oai": {
-                "identifier": f"oai:{self.app.config['SITE_UI_URL']}:XXXX",
+                "identifier": f"oai:{self.app.config['OAISERVER_ID_PREFIX']}:XXXX",
                 "provider": "oai",
             },
         }
@@ -1153,20 +1153,13 @@ class TestRecordMetadata:
                     "provider": "datacite",
                 },
                 "oai": {
-                    "identifier": f"oai:{app.config['SITE_UI_URL']}:{actual['id']}",
+                    "identifier": (
+                        f"oai:{app.config['OAISERVER_ID_PREFIX']}:{actual['id']}"
+                    ),
                     "provider": "oai",
                 },
             }
-            try:
-                assert actual["pids"] == expected_pids
-            except AssertionError as e:
-                expected_pids["oai"]["identifier"] = expected_pids["oai"][
-                    "identifier"
-                ].replace(
-                    app.config["SITE_UI_URL"], "https://localhost:5000"
-                )  # 127.0.0.1 is not always working in tests
-                app.logger.error(f"Assertion failed: {e}")
-                assert actual["pids"] == expected_pids
+            assert actual["pids"] == expected_pids
             # assert actual["revision_id"] == 4  # NOTE: Too difficult to test
             assert actual["stats"] == expected["stats"]
             assert actual["status"] == "published"

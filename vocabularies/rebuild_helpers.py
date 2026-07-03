@@ -7,13 +7,113 @@
 """Test helpers for rebuilding vocabularies."""
 
 from invenio_access.permissions import system_identity
+from invenio_cache import current_cache
 from invenio_pidstore.errors import PIDDoesNotExistError
 from invenio_records_resources.proxies import current_service_registry
-from invenio_search.proxies import current_search
+from invenio_search.proxies import current_search, current_search_client
 from invenio_vocabularies.proxies import current_service as vocabulary_service
 from invenio_vocabularies.records.api import Vocabulary
 from invenio_vocabularies.records.models import VocabularyMetadata, VocabularyType
 from sqlalchemy.exc import NoResultFound
+
+
+def _shared_vocabulary_type_ids(type_id: str, pid_type: str | None) -> list[str]:
+    """Return DB JSON type ids used to locate shared vocabulary rows."""
+    type_ids = [type_id]
+    if pid_type:
+        type_ids.append(pid_type)
+    return type_ids
+
+
+def _shared_vocabulary_db_query(type_id: str, pid_type: str | None):
+    """Return a query for DB rows belonging to one shared vocabulary type."""
+    type_ids = _shared_vocabulary_type_ids(type_id, pid_type)
+    return VocabularyMetadata.query.filter(
+        VocabularyMetadata.json.op("->")("type").op("->>")("id").in_(type_ids)
+    )
+
+
+def _shared_vocabulary_search_total(type_id: str) -> int | None:
+    """Return the number of search hits for a vocabulary type, if queryable.
+
+    Returns:
+        Document count for the type in the vocabularies index, or ``None`` if
+        the count query fails.
+    """
+    try:
+        response = current_search_client.count(
+            index=Vocabulary.index.search_alias,
+            body={"query": {"term": {"type.id": type_id}}},
+        )
+    except Exception:
+        return None
+    return response["count"]
+
+
+def _clear_vocabulary_read_all_cache(type_id: str) -> None:
+    """Drop cached ``read_all`` responses for one vocabulary type.
+
+    ``VocabularyService.read_all`` stores serialized OpenSearch responses in
+    Redis via Flask-Caching (``current_cache``). Logical keys look like
+    ``{type_id}_{extra_filter}_{field-field-...}`` — for example
+    ``languages__id`` or ``resourcetypes_<filter>_id-props.datacite``.
+
+    Flask-Caching prefixes those with ``CACHE_KEY_PREFIX`` (typically
+    ``cache::``). Keys are discovered with ``SCAN`` on the Redis backend, then
+    removed through ``current_cache.unlink`` using the logical key names.
+    """
+    try:
+        backend = current_cache.cache
+    except (AttributeError, RuntimeError):
+        return
+
+    redis_client = getattr(backend, "_read_client", None)
+    if redis_client is None:
+        return
+
+    key_prefix = getattr(backend, "key_prefix", None) or ""
+    pattern = f"{key_prefix}{type_id}_*"
+    logical_keys: list[str] = []
+    for redis_key in redis_client.scan_iter(match=pattern, count=100):
+        key = redis_key.decode() if isinstance(redis_key, bytes) else redis_key
+        if key_prefix and key.startswith(key_prefix):
+            logical_keys.append(key[len(key_prefix) :])
+
+    if logical_keys:
+        current_cache.unlink(*logical_keys)
+
+
+def _sync_shared_vocabulary_search_index(
+    type_id: str,
+    pid_type: str | None,
+    refresh: bool = True,
+) -> int:
+    """Reindex shared vocabulary rows from Postgres when search is stale.
+
+    Returns:
+        Number of DB-backed records reindexed, or 0 if search already matches DB.
+    """
+    if not Vocabulary.index.exists():
+        list(current_search.create(index_list=["vocabularies"]))
+
+    query = _shared_vocabulary_db_query(type_id, pid_type)
+    db_count = query.count()
+    if db_count == 0:
+        return 0
+
+    search_total = _shared_vocabulary_search_total(type_id)
+    if search_total is not None and search_total >= db_count:
+        return 0
+
+    for db_record in query.all():
+        record = Vocabulary.get_record(db_record.id)
+        vocabulary_service.indexer.index(record, arguments={})
+
+    if refresh:
+        Vocabulary.index.refresh()
+
+    _clear_vocabulary_read_all_cache(type_id)
+    return db_count
 
 
 def ensure_shared_vocabulary_type(
@@ -47,6 +147,7 @@ def ensure_shared_vocabulary_type(
     if refresh and new_entries > 0:
         Vocabulary.index.refresh()
 
+    _sync_shared_vocabulary_search_index(type_id, pid_type, refresh=refresh)
     return new_entries
 
 
@@ -80,7 +181,47 @@ def ensure_service_vocabulary(
     if refresh and new_entries > 0:
         record_cls.index.refresh()
 
+    _sync_service_vocabulary_search_index(service_name, record_cls, refresh=refresh)
     return new_entries
+
+
+def _sync_service_vocabulary_search_index(
+    service_name: str,
+    record_cls: type,
+    index_alias: str | None = None,
+    refresh: bool = True,
+) -> int:
+    """Reindex a dedicated service vocabulary from Postgres when search is stale.
+
+    Returns:
+        Number of DB-backed records reindexed, or 0 if search already matches DB.
+    """
+    service = current_service_registry.get(service_name)
+    alias = index_alias or service_name
+
+    if not record_cls.index.exists():
+        list(current_search.create(index_list=[alias]))
+
+    model_cls = record_cls.model_cls
+    db_count = (
+        model_cls.query.filter(model_cls.is_deleted == False).count()  # noqa: E712
+    )
+    if db_count == 0:
+        return 0
+
+    try:
+        results = service.search(system_identity, params={"size": 1})
+        if results.total >= db_count:
+            return 0
+    except Exception:
+        pass
+
+    service.rebuild_index(system_identity)
+
+    if refresh:
+        record_cls.index.refresh()
+
+    return db_count
 
 
 def rebuild_shared_vocabulary_type(
@@ -98,38 +239,7 @@ def rebuild_shared_vocabulary_type(
     Returns:
         Number of DB-backed records reindexed.
     """
-    if not Vocabulary.index.exists():
-        list(current_search.create(index_list=["vocabularies"]))
-
-    results = vocabulary_service.read_all(
-        system_identity,
-        fields=["id"],
-        type=type_id,
-        cache=False,
-    )
-
-    if results.total > 0:
-        return 0
-
-    type_ids = [type_id]
-    if pid_type:
-        type_ids.append(pid_type)
-
-    db_records = VocabularyMetadata.query.filter(
-        VocabularyMetadata.json.op("->")("type").op("->>")("id").in_(type_ids)
-    ).all()
-
-    if not db_records:
-        return 0
-
-    for db_record in db_records:
-        record = Vocabulary.get_record(db_record.id)
-        vocabulary_service.indexer.index(record, arguments={})
-
-    if refresh:
-        Vocabulary.index.refresh()
-
-    return len(db_records)
+    return _sync_shared_vocabulary_search_index(type_id, pid_type, refresh=refresh)
 
 
 def rebuild_service_vocabulary(
@@ -149,30 +259,9 @@ def rebuild_service_vocabulary(
     Returns:
         Number of DB-backed records reindexed.
     """
-    service = current_service_registry.get(service_name)
-
-    if not record_cls.index.exists():
-        list(current_search.create(index_list=[index_alias]))
-
-    model_cls = record_cls.model_cls
-    db_count = (
-        model_cls.query.filter(model_cls.is_deleted == False).count()  # noqa: E712
+    return _sync_service_vocabulary_search_index(
+        service_name,
+        record_cls,
+        index_alias=index_alias,
+        refresh=refresh,
     )
-
-    if db_count == 0:
-        return 0
-
-    try:
-        results = service.search(system_identity, params={"size": 1})
-        if results.total >= db_count:
-            return 0
-    except Exception:
-        # Missing index / broken alias / empty search state -> rebuild below.
-        pass
-
-    service.rebuild_index(system_identity)
-
-    if refresh:
-        record_cls.index.refresh()
-
-    return db_count

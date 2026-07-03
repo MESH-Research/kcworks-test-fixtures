@@ -249,7 +249,7 @@ def minimal_community_factory(
     create_communities_custom_fields,
     requests_mock,
     monkeypatch,
-):
+) -> Callable:
     """Create a minimal community for testing.
 
     Returns a function that can be called to create a minimal community
