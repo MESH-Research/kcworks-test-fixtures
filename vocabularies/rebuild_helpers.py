@@ -6,6 +6,8 @@
 
 """Test helpers for rebuilding vocabularies."""
 
+import inspect
+
 from invenio_access.permissions import system_identity
 from invenio_cache import current_cache
 from invenio_pidstore.errors import PIDDoesNotExistError
@@ -83,6 +85,58 @@ def _clear_vocabulary_read_all_cache(type_id: str) -> None:
         current_cache.unlink(*logical_keys)
 
 
+def _clear_get_cached_vocab_type(vocabulary_type: str) -> None:
+    """Drop in-process facet label cache entries for one vocabulary type.
+
+    ``VocabularyLabels`` (used for record search facets such as ``languages`` and
+    ``resourcetypes``) caches individual ``read_many`` lookups via
+    ``get_cached_vocab``. Cache keys are ``(service_id, type, fields, id_)``;
+    only entries whose ``type`` matches ``vocabulary_type`` are removed.
+
+    Subjects facets do not use this cache (``SubjectsLabels`` is a pass-through).
+    """
+    from invenio_vocabularies.services.facets import get_cached_vocab
+
+    try:
+        nonlocals = inspect.getclosurevars(get_cached_vocab).nonlocals
+        cache = nonlocals.get("cache")
+        cache_lock = nonlocals.get("cache_lock")
+        if not isinstance(cache, dict) or cache_lock is None:
+            get_cached_vocab.cache_clear()
+            return
+
+        stale_keys = [
+            key for key in cache if len(key) >= 2 and key[1] == vocabulary_type
+        ]
+        with cache_lock:
+            for key in stale_keys:
+                cache.pop(key, None)
+    except (TypeError, ValueError, AttributeError):
+        get_cached_vocab.cache_clear()
+
+
+def clear_vocabulary_label_caches(type_id: str) -> None:
+    """Clear cached vocabulary labels for one vocabulary type.
+
+    Two layers are involved:
+
+    * **In-process facet cache** — ``get_cached_vocab`` entries for
+      ``VocabularyLabels("…")`` (e.g. ``languages``, ``resourcetypes``).
+      Only entries for ``type_id`` are dropped.
+    * **Redis ``read_all`` cache** — serializer and UI lookups keyed as
+      ``{type_id}_…`` (e.g. ``resourcetypes_<filter>_id-props.datacite``).
+      Cleared via a scoped Redis ``SCAN``, not a full cache flush.
+
+    Large vocabs such as ``subjects`` are not touched unless ``type_id`` names
+    them explicitly.
+
+    Args:
+        type_id: Vocabulary type id whose label caches should be cleared.
+    """
+    _clear_get_cached_vocab_type(type_id)
+    _clear_vocabulary_read_all_cache(type_id)
+
+
 def _sync_shared_vocabulary_search_index(
     type_id: str,
     pid_type: str | None,
@@ -102,18 +156,19 @@ def _sync_shared_vocabulary_search_index(
         return 0
 
     search_total = _shared_vocabulary_search_total(type_id)
-    if search_total is not None and search_total >= db_count:
-        return 0
+    if search_total is None or search_total < db_count:
+        for db_record in query.all():
+            record = Vocabulary.get_record(db_record.id)
+            vocabulary_service.indexer.index(record, arguments={})
 
-    for db_record in query.all():
-        record = Vocabulary.get_record(db_record.id)
-        vocabulary_service.indexer.index(record, arguments={})
+        if refresh:
+            Vocabulary.index.refresh()
 
-    if refresh:
-        Vocabulary.index.refresh()
+        clear_vocabulary_label_caches(type_id)
+        return db_count
 
-    _clear_vocabulary_read_all_cache(type_id)
-    return db_count
+    clear_vocabulary_label_caches(type_id)
+    return 0
 
 
 def ensure_shared_vocabulary_type(

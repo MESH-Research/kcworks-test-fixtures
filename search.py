@@ -42,6 +42,10 @@ def search_clear(search) -> Generator[OpenSearch, None, None]:
     from invenio_communities.proxies import current_identities_cache
     from invenio_search import current_search
 
+    from tests.fixtures.vocabularies.rebuild_helpers import clear_vocabulary_label_caches
+    from tests.fixtures.vocabularies.resource_types import TYPE_ID
+
+    clear_vocabulary_label_caches(TYPE_ID)
     current_identities_cache.flush()
 
     registered_aliases = set(_leaf_alias_names(current_search.active_aliases))
