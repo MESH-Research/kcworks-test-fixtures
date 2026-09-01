@@ -181,7 +181,7 @@ subject_data = [
     {
         "id": "http://id.worldcat.org/fast/883762",
         "scheme": "FAST-topical",
-        "subject": "Criticism, textual",
+        "subject": "Criticism, Textual",
     },
     {
         "id": "http://id.worldcat.org/fast/1245064",
