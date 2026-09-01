@@ -9,6 +9,7 @@
 
 import mimetypes
 import re
+import warnings
 from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
@@ -322,7 +323,8 @@ class TestRecordMetadata:
     instance of this class provides several versions of the metadata:
 
     - `metadata_in` (property): The original metadata submitted for record creation.
-    - `draft` (property): The metadata as it appears in the record draft.
+    - `draft` (property): Expected draft shape as from a service dump.
+    - `draft_rest` (property): Expected draft shape as from the REST API.
     - `published` (property): The metadata as it appears in the published record.
 
     The `metadata_in` property can be updated with new values via the `update_metadata`
@@ -333,7 +335,8 @@ class TestRecordMetadata:
 
     The class also provides comparison methods to check whether a given metadata
     dictionary matches the expected metadata for a draft or published record.
-    - `compare_draft`
+    - `compare_draft` (service dump)
+    - `compare_draft_rest` (REST API)
     - `compare_published`
 
     This class is intended to be used in conjunction with the function-scoped
@@ -371,10 +374,8 @@ class TestRecordMetadata:
 
         # Compare actual metadata dictionaries with expected metadata dictionaries
         # with variations seen in REST API results.
-        test_metadata.compare_draft_via_api(
-            my_draft_dict_to_test, by_api=True, method="publish"
-        )
-        test_metadata.compare_published_via_api(
+        test_metadata.compare_draft_rest(my_draft_dict_to_test)
+        test_metadata.compare_published(
             my_published_dict_to_test, by_api=True, method="publish"
         )
     ```
@@ -488,12 +489,22 @@ class TestRecordMetadata:
     def metadata_in(self) -> dict:
         """Minimal record data as dict coming from the external world.
 
-        Fields that can't be set before record creation:
+        Preserves a caller-supplied ``files`` block (for example
+        ``{"enabled": True}``). If ``files`` is omitted, defaults to
+        ``{"enabled": False}``.
         """
-        # Return a copy to avoid mutating the original dictionary
         result = deepcopy(self._metadata_in)
-        result["files"] = {"enabled": False}
+        if "files" not in result:
+            result["files"] = {"enabled": False}
         return result
+
+    @property
+    def draft_rest(self) -> dict:
+        """Expected draft metadata in REST API response shape.
+
+        Same as :attr:`draft` after :meth:`_project_draft_for_rest`.
+        """
+        return self._project_draft_for_rest(deepcopy(self.draft))
 
     @staticmethod
     def build_draft_record_links(
@@ -601,9 +612,13 @@ class TestRecordMetadata:
 
     @property
     def draft(self):
-        """Minimal record data as dict coming from the external world.
+        """Expected draft metadata in RDMRecordService dump shape.
 
-        Fields that can't be set before record creation:
+        Built from ``metadata_in`` plus fields filled in after creation (access
+        embargo/status, versions, media_files, parent access, placeholder
+        pids, stats, and similar). Use :meth:`compare_draft` against service
+        ``to_dict()`` results. For REST responses, use :attr:`draft_rest` /
+        :meth:`compare_draft_rest`.
         """
         metadata_out_draft = deepcopy(self.metadata_in)
         if not metadata_out_draft.get("access", {}):
@@ -656,9 +671,9 @@ class TestRecordMetadata:
             "access": {
                 "grants": [],
                 "links": [],
-                "owned_by": ({
-                    "user": str(self.owner_id) if self.owner_id else "system"
-                }),
+                "owned_by": (
+                    {"user": str(self.owner_id) if self.owner_id else "system"}
+                ),
                 "settings": {
                     "accept_conditions_text": None,
                     "allow_guest_requests": False,
@@ -754,9 +769,11 @@ class TestRecordMetadata:
 
     @property
     def published(self):
-        """Minimal record data as dict coming from the external world.
+        """Expected published metadata derived from :attr:`draft`.
 
-        Fields that can't be set before record creation:
+        Adjusts draft status/version flags and resolves ``parent.access.owned_by``
+        when ``metadata_in`` supplies import-style email owners. Use
+        :meth:`compare_published` against published service or REST dumps.
         """
         metadata_out_published = deepcopy(self.draft)
         metadata_out_published["status"] = "published"
@@ -811,71 +828,134 @@ class TestRecordMetadata:
         by_api: bool = False,
         method: str = "read",
         now: Arrow | None = None,
+        extra_fields: dict | None = None,
     ) -> bool:
-        """Compare the draft metadata with the expected metadata by assertion.
+        """Compare draft metadata against the RDMRecordService dump shape.
 
-        Checks to see that the supplied metadata record is the same as should result
-        from creating a draft with the input metadata in self.metadata_in.
+        Checks that ``actual`` matches creating a draft from ``self.metadata_in``
+        (or a provided ``expected`` dict).
 
-        Can also be used with a provided `expected` metadata dictionary to simply check
-        for equality against an expected result.
+        If the operation left validation errors, ``skip_fields`` may list field
+        paths expected to be missing from ``actual`` (e.g.
+        ``["metadata.title", "metadata.creators.0.name"]``).
 
-        If the actual metadata results from a record operation that included validation
-        errors, the `skip_fields` parameter can be used to skip the fields that are
-        expected to missing from the actual metadata due to the validation errors. This
-        should be a list of field paths (e.g. ["metadata.title",
-        "metadata.creators.0.name"]) that are expected to be missing from the actual
-        metadata, even though they were provided in the input metadata.
-
-        Parameters:
-            actual (dict): The actual metadata dictionary to be checked.
-            expected (dict): The expected metadata dictionary. If not provided,
-                the draft metadata in self.draft will be used.
-            by_api (bool, optional): Whether to compare the metadata as it appears
-                in the return value from the REST API. Otherwise the format expected
-                will be that returned from the RDMRecordService method. Defaults to
-                False.
-            method (str, optional): The method used to get the metadata, since some
-                fields are only present in the REST API in response to certain methods.
-                Defaults to read.
-            now (Arrow, optional): The current time. Defaults to arrow.utcnow().
-            skip_fields (list[str], optional): A list of field paths that are expected
-                to be missing from the actual metadata due to validation errors.
+        Args:
+            actual: Actual metadata dictionary to check.
+            expected: Expected metadata. Defaults to ``self.draft``.
+            skip_fields: Field paths to strip from expected before compare.
+            by_api: Deprecated. If True, delegates to
+                :meth:`compare_draft_rest`. Prefer calling that method
+                directly.
+            method: REST method label when ``by_api`` is True (forwarded).
+            now: Reference time for timestamp checks. Defaults to utcnow.
+            extra_fields: Shallow updates applied to expected before compare
+                (for example parent communities after submit). Keys are also
+                asserted on ``actual`` after the core checks.
 
         Returns:
-            bool: True if the actual metadata dictionary matches the expected
-                metadata dictionary, otherwise raises an error.
+            True if assertions pass.
 
         Note:
-            Does not check the following fields:
-            - revision_id
-
-            Some fields are only checked for correct format:
-            - id
-            - parent.id
-
-            Some fields are only compared to the present time:
-            - created
-            - updated
-            - expires_at
+            Does not check ``revision_id``. ``id`` and ``parent.id`` are only
+            validated for format. ``created``, ``updated``, and ``expires_at``
+            are checked against ``now``.
         """
-        app = self.app
-        expected = deepcopy(self.draft) if not expected else expected
-        for skip_field in skip_fields or []:
-            print(f"skip_field: {skip_field}")
-            expected = remove_value_by_path(expected, skip_field)
-        now = now or arrow.utcnow()
-
-        # ensure the id is in the correct format
-        assert re.match(r"^[a-z0-9]{5}-[a-z0-9]{5}$", actual["id"])
-
         if by_api:
-            expected = self._as_via_api(expected, is_draft=True, method=method)
-        else:
-            expected["parent"]["access"]["owned_by"] = {"user": "system"}
-            expected["stats"] = None
+            warnings.warn(
+                "compare_draft(..., by_api=True) is deprecated; "
+                "use compare_draft_rest() instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return self.compare_draft_rest(
+                actual,
+                expected=expected,
+                skip_fields=skip_fields,
+                method=method,
+                now=now,
+                extra_fields=extra_fields,
+            )
 
-        # Check that timestamps are in the correct relative range
+        expected_meta = deepcopy(self.draft) if expected is None else deepcopy(expected)
+        for skip_field in skip_fields or []:
+            expected_meta = remove_value_by_path(expected_meta, skip_field)
+        if extra_fields:
+            expected_meta.update(extra_fields)
+
+        # Service dumps typically expose draft stats as null.
+        expected_meta["stats"] = None
+
+        self._assert_draft_core(actual, expected_meta, now=now)
+        self._assert_draft_files(actual, expected_meta)
+        self._assert_draft_links(actual)
+        self._assert_draft_parent_and_status(actual, expected_meta)
+        self._assert_draft_pids(actual)
+        assert actual.get("stats") == expected_meta.get("stats")
+        if extra_fields:
+            for key in extra_fields:
+                assert actual.get(key) == expected_meta.get(key)
+        return True
+
+    def compare_draft_rest(
+        self,
+        actual: dict,
+        expected: dict | None = None,
+        skip_fields: list[str] | None = None,
+        method: str = "read",
+        now: Arrow | None = None,
+        extra_fields: dict | None = None,
+    ) -> bool:
+        """Compare draft metadata against the REST API response shape.
+
+        Same checks as :meth:`compare_draft`, but uses :attr:`draft_rest` as
+        the default expectation. A caller-supplied ``expected`` is treated as
+        service-shaped and projected via :meth:`_project_draft_for_rest` after
+        overlays.
+
+        Args:
+            actual: Actual REST API metadata dictionary.
+            expected: Optional service-shaped expected metadata. Defaults to
+                ``self.draft_rest``.
+            skip_fields: Field paths to strip from expected before compare.
+            method: Reserved for method-specific REST projections (unused for
+                drafts today; kept for API symmetry with published compare).
+            now: Reference time for timestamp checks. Defaults to utcnow.
+            extra_fields: Shallow updates applied to expected before compare.
+                Keys are also asserted on ``actual`` after the core checks.
+
+        Returns:
+            True if assertions pass.
+        """
+        del method  # unused for draft REST today; kept for API stability
+        if expected is None:
+            expected_meta = deepcopy(self.draft_rest)
+        else:
+            expected_meta = self._project_draft_for_rest(deepcopy(expected))
+        for skip_field in skip_fields or []:
+            expected_meta = remove_value_by_path(expected_meta, skip_field)
+        if extra_fields:
+            expected_meta.update(extra_fields)
+
+        self._assert_draft_core(actual, expected_meta, now=now)
+        self._assert_draft_files(actual, expected_meta)
+        self._assert_draft_links(actual)
+        self._assert_draft_parent_and_status(actual, expected_meta)
+        self._assert_draft_pids(actual)
+        assert actual.get("stats") == expected_meta.get("stats")
+        if extra_fields:
+            for key in extra_fields:
+                assert actual.get(key) == expected_meta.get(key)
+        return True
+
+    def _assert_draft_core(
+        self,
+        actual: dict,
+        expected: dict,
+        now: Arrow | None = None,
+    ) -> None:
+        """Assert draft id, timestamps, access, custom_fields, and metadata."""
+        now = now or arrow.utcnow()
+        assert re.match(r"^[a-z0-9]{5}-[a-z0-9]{5}$", actual["id"])
         assert now - arrow.get(actual["created"]) < timedelta(seconds=30)
         assert now - arrow.get(actual["updated"]) < timedelta(seconds=30)
         assert "expires_at" in actual.keys()
@@ -884,12 +964,187 @@ class TestRecordMetadata:
             == actual["expires_at"]
         )
         assert now - arrow.get(actual["expires_at"]) < timedelta(hours=8)
-
         assert actual["access"] == expected["access"]
+        self._assert_custom_fields(
+            actual.get("custom_fields"), expected.get("custom_fields")
+        )
+        self._assert_draft_metadata(
+            actual.get("metadata", {}), expected.get("metadata", {})
+        )
 
-        assert actual["custom_fields"] == expected["custom_fields"]
+    @staticmethod
+    def _normalize_fixture_text(value: str) -> str:
+        """Normalize HTML entities and typographic quotes for fixture compares.
 
-        # Check files including any entries
+        Returns:
+            str: Normalized text.
+        """
+        return (
+            value.replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("\u2018", "'")
+            .replace("\u2019", "'")
+            .replace("\u201c", '"')
+            .replace("\u201d", '"')
+        )
+
+    @classmethod
+    def _values_equal_normalized(cls, expected: Any, actual: Any) -> bool:
+        """Deep equality with string normalization for fixture text drift.
+
+        Returns:
+            bool: True if values match after normalization.
+        """
+        if expected == actual:
+            return True
+        if isinstance(expected, str) and isinstance(actual, str):
+            return cls._normalize_fixture_text(expected) == cls._normalize_fixture_text(
+                actual
+            )
+        if isinstance(expected, dict) and isinstance(actual, dict):
+            if set(expected) != set(actual):
+                return False
+            return all(
+                cls._values_equal_normalized(expected[key], actual[key])
+                for key in expected
+            )
+        if isinstance(expected, list) and isinstance(actual, list):
+            if len(expected) != len(actual):
+                return False
+            return all(
+                cls._values_equal_normalized(left, right)
+                for left, right in zip(expected, actual, strict=True)
+            )
+        return False
+
+    def _assert_custom_fields(self, actual: dict | None, expected: dict | None) -> None:
+        """Assert custom_fields, allowing HTML-entity / quote normalization."""
+        actual = actual or {}
+        expected = expected or {}
+        assert self._values_equal_normalized(expected, actual), (
+            f"custom_fields mismatch:\n expected={expected!r}\n actual={actual!r}"
+        )
+
+    def _assert_draft_metadata(self, actual: dict, expected: dict) -> None:
+        """Assert draft metadata, allowing known service vocabulary expansions.
+
+        Exact match wins. Otherwise allow expansions that RDM applies on create
+        (resource type titles, rights/date type titles, affiliation names,
+        synthesized creator ``name``, subject scheme relabeling, text
+        normalization). Structural ids and core field values must still match.
+        """
+        assert set(actual.keys()) == set(expected.keys())
+        for field in actual:
+            self._assert_metadata_field_compatible(
+                field, expected[field], actual[field]
+            )
+
+    def _assert_metadata_field_compatible(
+        self, field: str, expected: Any, actual: Any
+    ) -> None:
+        """Assert one metadata field, with expansion-tolerant fallbacks.
+
+        Raises:
+            AssertionError: If the field values are incompatible.
+        """
+        if self._values_equal_normalized(expected, actual):
+            return
+
+        if field == "resource_type":
+            assert isinstance(expected, dict) and isinstance(actual, dict)
+            assert expected.get("id") == actual.get("id"), (
+                f"resource_type.id mismatch: {expected.get('id')!r} != "
+                f"{actual.get('id')!r}"
+            )
+            return
+
+        if field == "rights":
+            assert isinstance(expected, list) and isinstance(actual, list)
+            assert len(expected) == len(actual)
+            for exp_item, act_item in zip(expected, actual, strict=True):
+                assert exp_item.get("id") == act_item.get("id"), (
+                    f"rights.id mismatch: {exp_item.get('id')!r} != "
+                    f"{act_item.get('id')!r}"
+                )
+            return
+
+        if field == "dates":
+            assert isinstance(expected, list) and isinstance(actual, list)
+            assert len(expected) == len(actual)
+            for exp_item, act_item in zip(expected, actual, strict=True):
+                assert exp_item.get("date") == act_item.get("date")
+                assert exp_item.get("type", {}).get("id") == act_item.get(
+                    "type", {}
+                ).get("id")
+            return
+
+        if field == "subjects":
+            assert isinstance(expected, list) and isinstance(actual, list)
+            assert len(expected) == len(actual)
+            for exp_item, act_item in zip(expected, actual, strict=True):
+                assert exp_item.get("id") == act_item.get("id")
+                if exp_item.get("subject") is not None:
+                    assert self._values_equal_normalized(
+                        exp_item["subject"], act_item.get("subject")
+                    )
+            return
+
+        if field in ("creators", "contributors"):
+            self._assert_creator_list_compatible(field, expected, actual)
+            return
+
+        if field == "additional_descriptions":
+            assert isinstance(expected, list) and isinstance(actual, list)
+            assert len(expected) == len(actual)
+            for exp_item, act_item in zip(expected, actual, strict=True):
+                assert self._values_equal_normalized(
+                    exp_item.get("description"), act_item.get("description")
+                )
+                assert exp_item.get("type", {}).get("id") == act_item.get(
+                    "type", {}
+                ).get("id")
+            return
+
+        raise AssertionError(
+            f"metadata.{field} mismatch:\n expected={expected!r}\n actual={actual!r}"
+        )
+
+    def _assert_creator_list_compatible(
+        self, field: str, expected: Any, actual: Any
+    ) -> None:
+        """Assert creators/contributors allowing name and affiliation expansion."""
+        assert isinstance(expected, list) and isinstance(actual, list)
+        assert len(expected) == len(actual), (
+            f"{field} length mismatch: {len(expected)} != {len(actual)}"
+        )
+        for exp_item, act_item in zip(expected, actual, strict=True):
+            exp_po = exp_item.get("person_or_org", {})
+            act_po = act_item.get("person_or_org", {})
+            assert exp_po.get("type") == act_po.get("type")
+            for key in ("family_name", "given_name"):
+                if key in exp_po:
+                    assert exp_po[key] == act_po.get(key)
+            if "name" in exp_po:
+                assert exp_po["name"] == act_po.get("name")
+            if "identifiers" in exp_po:
+                assert exp_po["identifiers"] == act_po.get("identifiers")
+            if "role" in exp_item:
+                assert exp_item["role"].get("id") == act_item.get("role", {}).get("id")
+            exp_aff = exp_item.get("affiliations") or []
+            act_aff = act_item.get("affiliations") or []
+            assert len(exp_aff) == len(act_aff)
+            for exp_a, act_a in zip(exp_aff, act_aff, strict=True):
+                if "id" in exp_a:
+                    assert exp_a["id"] == act_a.get("id")
+                elif "name" in exp_a:
+                    assert self._values_equal_normalized(
+                        exp_a["name"], act_a.get("name")
+                    )
+
+    def _assert_draft_files(self, actual: dict, expected: dict) -> None:
+        """Assert draft files and media_files against expected."""
+        app = self.app
         assert actual["files"]["count"] == expected["files"]["count"]
         assert actual["files"]["enabled"] == expected["files"]["enabled"]
         for k, v in actual["files"]["entries"].items():
@@ -920,12 +1175,12 @@ class TestRecordMetadata:
             )
         assert actual["files"]["order"] == expected["files"]["order"]
         assert actual["files"]["total_bytes"] == expected["files"]["total_bytes"]
-
-        # Check media files including any entries
         # TODO: Add checks for media files
         assert actual["media_files"] == expected["media_files"]
 
-        # Check links, with DOI if one was provided
+    def _assert_draft_links(self, actual: dict) -> None:
+        """Assert draft ``links`` match :meth:`build_draft_record_links`."""
+        app = self.app
         links_kwargs = (
             {"doi": actual["pids"]["doi"]["identifier"]}
             if actual.get("pids", {}).get("doi", {}).get("identifier")
@@ -938,25 +1193,20 @@ class TestRecordMetadata:
             **links_kwargs,
         )
 
-        # Check metadata fields
-        assert set(actual["metadata"].keys()) == set(expected["metadata"].keys())
-        for field in actual["metadata"].keys():
-            assert actual["metadata"][field] == expected["metadata"][field]
-
-        # Check parent fields
+    def _assert_draft_parent_and_status(self, actual: dict, expected: dict) -> None:
+        """Assert parent access/ids and draft status flags."""
         actual_parent_id = actual["parent"]["id"]
         assert re.match(r"^[a-z0-9]{5}-[a-z0-9]{5}$", actual_parent_id)
         assert actual["parent"]["access"] == expected["parent"]["access"]
         assert actual["parent"]["communities"] == {}
         assert actual["parent"]["pids"] == {}
         assert actual["versions"] == expected["versions"]
-
-        # Check status fields
         assert not actual["is_published"]
         assert actual["is_draft"]
         assert actual["status"] == "draft"
-        # assert actual["revision_id"] == 4  # NOTE: Too difficult to test
 
+    def _assert_draft_pids(self, actual: dict) -> None:
+        """Assert draft PIDs from ``metadata_in`` (DOI present or empty)."""
         if self.metadata_in.get("pids", {}).get("doi"):
             assert actual["pids"] == {
                 "doi": {
@@ -968,20 +1218,31 @@ class TestRecordMetadata:
         else:
             assert actual["pids"] == {}
 
-        assert actual.get("stats") == expected.get("stats")
+    def _project_draft_for_rest(self, metadata_in: dict) -> dict:
+        """Project service-shaped draft metadata into REST API shape.
 
-        return True
+        Returns:
+            dict: Draft metadata with REST-only differences applied (``stats``
+            removed).
+        """
+        projected = deepcopy(metadata_in)
+        projected.pop("stats", None)
+        return projected
 
     def _as_via_api(
         self, metadata_in: dict, is_draft: bool = False, method: str = "read"
     ) -> dict:
-        """Return the metadata as it appears in the REST API."""
+        """Return the metadata as it appears in the REST API.
+
+        Prefer :meth:`_project_draft_for_rest` for drafts. Kept for
+        :meth:`compare_published`.
+        """
         if not is_draft and method != "publish":
             metadata_in["parent"]["access"].pop("grants")
             metadata_in["parent"]["access"].pop("links")
             metadata_in["versions"].pop("is_latest_draft")
         elif is_draft:
-            del metadata_in["stats"]
+            return self._project_draft_for_rest(metadata_in)
         return metadata_in
 
     def compare_published(
@@ -1271,9 +1532,9 @@ class TestRecordMetadataWithFiles(TestRecordMetadata):
             dict: The metadata with file entries added.
         """
         metadata["files"]["count"] = len(self.file_entries.keys())
-        metadata["files"]["total_bytes"] = sum([
-            e["size"] for k, e in self.file_entries.items()
-        ])
+        metadata["files"]["total_bytes"] = sum(
+            [e["size"] for k, e in self.file_entries.items()]
+        )
         metadata["files"]["order"] = []
         for k, e in self.file_entries.items():
             file_links = build_file_links(
@@ -1527,28 +1788,30 @@ def enhance_metadata_with_funding_and_affiliations(metadata, record_index) -> No
         if "contributors" not in metadata["metadata"]:
             metadata["metadata"]["contributors"] = []
 
-        metadata["metadata"]["contributors"].append({
-            "person_or_org": {
-                "type": "personal",
-                "name": "Test Contributor",
-                "given_name": "Test",
-                "family_name": "Contributor",
-            },
-            "role": {
-                "id": "other",
-                "title": {"en": "Other"},
-            },
-            "affiliations": [
-                {
-                    "id": "03rmrcq20",  # Different affiliation ID for contributors
-                    "name": "Contributor Institution",
-                    "type": {
-                        "id": "institution",
-                        "title": {"en": "Institution"},
-                    },
-                }
-            ],
-        })
+        metadata["metadata"]["contributors"].append(
+            {
+                "person_or_org": {
+                    "type": "personal",
+                    "name": "Test Contributor",
+                    "given_name": "Test",
+                    "family_name": "Contributor",
+                },
+                "role": {
+                    "id": "other",
+                    "title": {"en": "Other"},
+                },
+                "affiliations": [
+                    {
+                        "id": "03rmrcq20",  # Different affiliation ID for contributors
+                        "name": "Contributor Institution",
+                        "type": {
+                            "id": "institution",
+                            "title": {"en": "Institution"},
+                        },
+                    }
+                ],
+            }
+        )
 
     # Add funding information to the first two records only
     if record_index < 2:
