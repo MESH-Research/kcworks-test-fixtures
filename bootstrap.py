@@ -63,24 +63,6 @@ from tests.fixtures.vocabularies.roles import (
 from tests.fixtures.vocabularies.subjects import ensure_subjects_vocabulary
 from tests.fixtures.vocabularies.title_types import ensure_title_types_vocabulary
 
-PRESERVED_SEARCH_ALIASES = {
-    "vocabularies",
-    "awards",
-    "affiliations",
-    "subjects",
-    "funders",
-}
-
-
-def _leaf_alias_names(tree: dict) -> list[str]:
-    names: list[str] = []
-    for name, value in tree.items():
-        if isinstance(value, dict):
-            names.extend(_leaf_alias_names(value))
-        else:
-            names.append(name)
-    return names
-
 
 @pytest.fixture(scope="session")
 def bootstrap_instance_path() -> Generator[str, None, None]:
