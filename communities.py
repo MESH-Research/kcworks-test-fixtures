@@ -71,8 +71,22 @@ def add_community_to_record(
     )
 
 
-def make_community_member(user_id: int, role: str, community_id: str) -> None:
+def make_community_member(
+    user_id: int,
+    role: str,
+    community_id: str,
+    *,
+    visible: bool = True,
+) -> None:
     """Make a member of a community.
+
+    Args:
+        user_id: The user id to add as a member.
+        role: Community role for the member (e.g. ``"owner"``, ``"reader"``).
+        community_id: Community UUID.
+        visible: Whether the membership is publicly listed. Defaults to
+            ``True``. Pass ``False`` for hidden members (membership visibility
+            must not affect permission checks).
 
     Raises:
         IntegrityError: If the creation of the community member fails.
@@ -85,7 +99,7 @@ def make_community_member(user_id: int, role: str, community_id: str) -> None:
                 community_id=community_id,
                 role=role,
                 active=True,
-                visible=True,
+                visible=visible,
                 request_id=None,
                 user_id=user_id,
             )
