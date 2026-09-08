@@ -14,6 +14,14 @@ import os
 PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN = "pytest-mock-commons-profiles-token"
 
 
+def set_default_os_env() -> None:
+    """Set default OS env vars for testing.
+
+    Intended to be called once at suite startup
+    """
+    os.environ["COMMONS_PROFILES_API_TOKEN"] = PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN
+
+
 def commons_profiles_api_token_is_live_configured() -> bool:
     """True when a non-placeholder Profiles bearer token is set.
 
