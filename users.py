@@ -27,6 +27,7 @@ from invenio_accounts.proxies import current_accounts
 from invenio_accounts.testutils import login_user_via_session
 from invenio_administration.permissions import administration_access_action
 from invenio_oauth2server.models import Token
+from invenio_oauth2server.proxies import current_oauth2server
 from invenio_oauthclient.models import UserIdentity
 from pytest_invenio.fixtures import UserFixtureBase
 from requests_mock.adapter import _Matcher as Matcher
@@ -252,6 +253,7 @@ def user_factory(
         orcid: str | None = "",
         kc_username: str | None = "myuser",
         new_remote_data: dict | None = None,
+        scopes: list[str] | None = None,
     ) -> AugmentedUserFixture:
         """Create an augmented pytest-invenio user fixture.
 
@@ -264,6 +266,10 @@ def user_factory(
             oauth_id: The user's ID for oauth authentication.
             kc_username: The user's username on Knowledge Commons.
             new_remote_data: The user's remote data for mocking api responses.
+            scopes: OAuth scope ids for the personal token. When `token` is
+                True and this is omitted, all registered scopes (including
+                internal) are granted so suite tests exercise permission
+                policy rather than accidental empty scopes.
 
         Returns:
             The created UserFixture object. This has the following attributes:
@@ -318,10 +324,18 @@ def user_factory(
         u.user.verified_at = datetime.datetime.now(datetime.UTC)
 
         if token:
+            token_scopes = scopes
+            if token_scopes is None:
+                token_scopes = [
+                    sid
+                    for sid, _ in current_oauth2server.scope_choices(
+                        exclude_internal=False
+                    )
+                ]
             u.allowed_token = Token.create_personal(
                 "webhook",
                 u.id,
-                scopes=[],  # , is_internal=False
+                scopes=token_scopes,
             ).access_token
 
         if admin:

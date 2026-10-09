@@ -26,6 +26,9 @@ from invenio_remote_user_data_kcworks.types.profiles_api import (
     SubData,
 )
 from invenio_remote_user_data_kcworks.utils.broker import extract_bearer_token
+from invenio_remote_user_data_kcworks.utils.static_token import (
+    resolve_static_token_route,
+)
 
 
 class _AccessTokenStandIn(BaseModel):
@@ -93,21 +96,6 @@ def empty_api_response(*, authorized: bool = True) -> APIResponse:
     )
 
 
-def _route_token_env_for_request(path: str, routes_map: dict[str, str]) -> str | None:
-    """Return the token env var name for `path`, or `None`."""
-    if not routes_map:
-        return None
-    matches = [
-        (prefix, env_var)
-        for prefix, env_var in routes_map.items()
-        if path.startswith(prefix)
-    ]
-    if not matches:
-        return None
-    most_specific = max(matches, key=lambda p: len([s for s in p[0].split("/") if s]))
-    return most_specific[1]
-
-
 def _idms_static_api_token_before_request() -> None:
     """If path + Bearer match `STATIC_API_TOKEN_ROUTES`, impersonate configured user.
 
@@ -117,11 +105,14 @@ def _idms_static_api_token_before_request() -> None:
     if getattr(request, "oauth_verify_has_run", False):
         return
 
-    routes_map = current_app.config.get("STATIC_API_TOKEN_ROUTES") or {}
-    token_env_var = _route_token_env_for_request(request.path, routes_map)
-    if not token_env_var:
+    binding = resolve_static_token_route(
+        request.path,
+        current_app.config.get("STATIC_API_TOKEN_ROUTES") or {},
+        current_app.config,
+    )
+    if binding is None or binding.user_id is None:
         return
-    static_token = os.environ.get(token_env_var)
+    static_token = os.environ.get(binding.token_env)
     if not static_token:
         return
     try:
@@ -131,10 +122,7 @@ def _idms_static_api_token_before_request() -> None:
     if token != static_token:
         return
 
-    user_id = current_app.config.get("STATIC_API_TOKEN_USER_ID")
-    if user_id is None:
-        return
-    user = current_datastore.find_user(id=user_id)
+    user = current_datastore.find_user(id=binding.user_id)
     if not user or not user.active:
         return
 
@@ -143,7 +131,10 @@ def _idms_static_api_token_before_request() -> None:
         current_app._get_current_object(),
         identity=Identity(user.id),  # type: ignore[arg-type]
     )
-    scopes = {sid for sid, _ in current_oauth2server.scope_choices()}
+    scopes = {
+        sid
+        for sid, _ in current_oauth2server.scope_choices(exclude_internal=False)
+    }
     request.oauth = _OAuthStandIn(  # type: ignore[attr-defined]
         user=user,
         access_token=_AccessTokenStandIn(scopes=scopes),
@@ -153,10 +144,9 @@ def _idms_static_api_token_before_request() -> None:
 
 
 def register_idms_static_api_token_before_request(app) -> None:
-    """Prepend the IDMS static-token handler when `STATIC_API_TOKEN_*` is set."""
+    """Prepend the IDMS static-token handler when `STATIC_API_TOKEN_ROUTES` is set."""
     routes_map = app.config.get("STATIC_API_TOKEN_ROUTES") or {}
-    static_user_id = app.config.get("STATIC_API_TOKEN_USER_ID")
-    if not routes_map or static_user_id is None:
+    if not routes_map:
         return
     funcs = app.before_request_funcs.get(None, [])
     if _idms_static_api_token_before_request in funcs:
@@ -167,14 +157,14 @@ def register_idms_static_api_token_before_request(app) -> None:
 def _set_test_cookie(client, name: str, value: str) -> None:
     """Set a cookie on a Flask test client across Werkzeug versions.
 
-    Werkzeug <= 2.2 uses ``set_cookie(server_name, key, value, ...)`` while
-    Werkzeug >= 2.3/3.x uses ``set_cookie(key, value, *, domain=...)``. The
+    Werkzeug <= 2.2 uses `set_cookie(server_name, key, value, ...)` while
+    Werkzeug >= 2.3/3.x uses `set_cookie(key, value, *, domain=...)`. The
     KCWorks test suite currently runs on Werkzeug 2.2, but we detect the
     signature so the helper keeps working if the pin changes.
     """
     params = list(inspect.signature(client.set_cookie).parameters)
     if params and params[0] == "server_name":
-        # The default test client request host is ``localhost``; the cookie's
+        # The default test client request host is `localhost`; the cookie's
         # server_name must match it so the cookie is sent with the request.
         client.set_cookie("localhost", name, value)
     else:
@@ -185,12 +175,12 @@ def _set_test_cookie(client, name: str, value: str) -> None:
 def bypass_silent_sso_redirect(running_app, client):
     """Skip the silent-SSO before_request redirect for anonymous UI requests.
 
-    invenio-remote-user-data-kcworks registers a ``before_request`` handler that
+    invenio-remote-user-data-kcworks registers a `before_request` handler that
     redirects anonymous UI requests to the Profiles silent-login broker (a 302)
     whenever its retry cookie is absent or expired. Tests that exercise UI routes
-    with an anonymous ``client`` would otherwise receive that redirect instead of
+    with an anonymous `client` would otherwise receive that redirect instead of
     the target view. Seeding the retry cookie with a fresh timestamp makes
-    ``BrokerHelpers.ready_for_login_broker_check()`` return ``False`` so the hook
+    `BrokerHelpers.ready_for_login_broker_check()` return `False` so the hook
     is a no-op.
 
     Returns:

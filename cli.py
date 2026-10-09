@@ -14,13 +14,13 @@ import pytest
 
 
 class _ResultWithCombinedOutput:
-    """Click ``Result`` proxy that appends pytest-captured stdout/stderr.
+    """Click `Result` proxy that appends pytest-captured stdout/stderr.
 
-    Some Invenio service calls rebind ``sys.stdout`` mid-command so later
-    ``click.echo`` / ``print`` output bypasses ``CliRunner`` isolation and
+    Some Invenio service calls rebind `sys.stdout` mid-command so later
+    `click.echo` / `print` output bypasses `CliRunner` isolation and
     lands in pytest's capture instead. Merging both matches what the user
     would see and what older Click versions effectively exposed via
-    ``result.output``.
+    `result.output`.
     """
 
     def __init__(self, result: Any, extra: str) -> None:
@@ -43,8 +43,8 @@ class _ResultWithCombinedOutput:
 def cli_runner(base_app, capsys):
     """Create a CLI runner for testing a CLI command.
 
-    Uses Click ``capture="fd"`` and merges any output that escaped into
-    pytest's capture (see ``_ResultWithCombinedOutput``).
+    Uses Click `capture="fd"` and merges any output that escaped into
+    pytest's capture (see `_ResultWithCombinedOutput`).
 
     Returns:
         function: CLI runner function.
