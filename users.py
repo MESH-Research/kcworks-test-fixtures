@@ -380,6 +380,38 @@ def user_factory(
 
 
 @pytest.fixture(scope="function")
+def service_user_factory(user_factory) -> Callable[..., AugmentedUserFixture]:
+    """Factory for non-admin users without OAuth identity (capability roles).
+
+    Forwards `token` / `scopes` to `user_factory`. When `token` is True and
+    `scopes` is omitted, the personal token receives all registered scopes
+    (same default as `user_factory`).
+
+    Returns:
+        A callable `(*, email, token=False, scopes=None) -> AugmentedUserFixture`
+        suitable for assigning service-capability roles via `assign_roles`.
+    """
+
+    def make_service_user(
+        *,
+        email: str,
+        token: bool = False,
+        scopes: list[str] | None = None,
+    ) -> AugmentedUserFixture:
+        return user_factory(
+            email=email,
+            admin=False,
+            token=token,
+            scopes=scopes,
+            oauth_src=None,
+            oauth_id=None,
+            kc_username=None,
+        )
+
+    return make_service_user
+
+
+@pytest.fixture(scope="function")
 def admin_role_need(app, db):
     """Store 1 role with 'superuser-access' ActionNeed.
 
