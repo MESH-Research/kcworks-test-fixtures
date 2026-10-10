@@ -118,16 +118,26 @@ def make_community_member(
 def communities_links_factory(app):
     """Create links for communities for testing.
 
+    As in CommunityLinksTemplate.expand()
+
+    Note:
+        The "admin" flag in the inner function allows for including links
+        that are uniquely generated if the user has administrative permissions for the
+        instance including: `featured_create`
+
     Returns:
         function: Function to assemble community links.
     """
 
-    def assemble_links(community_id: str, slug: str):
+    def assemble_links(community_id: str, slug: str, admin: bool = False):
         api_base_url = app.config["SITE_API_URL"]
         ui_base_url = app.config["SITE_UI_URL"]
 
-        return {
-            "featured": f"{api_base_url}/communities/{community_id}/featured",
+        links = {}
+        if admin:
+            links = {"featured": f"{api_base_url}/communities/{community_id}/featured"}
+
+        links.update({
             "invitations": f"{api_base_url}/communities/{community_id}/invitations",
             "logo": f"{api_base_url}/communities/{community_id}/logo",
             "members": f"{api_base_url}/communities/{community_id}/members",
@@ -143,7 +153,9 @@ def communities_links_factory(app):
             "self": f"{api_base_url}/communities/{community_id}",
             "self_html": f"{ui_base_url}/collections/{slug}/",
             "settings_html": f"{ui_base_url}/collections/{slug}/settings",
-        }
+        })
+
+        return links
 
     return assemble_links
 
