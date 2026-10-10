@@ -11,21 +11,20 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 import pytest
-from flask_principal import Identity, identity_changed
+from flask_principal import Identity
 from invenio_access.models import ActionRoles
 from invenio_access.permissions import superuser_access
+from invenio_access.utils import get_identity
 from invenio_accounts.proxies import current_accounts
 from invenio_administration.permissions import administration_access_action
 from invenio_db import db
 
 
-from invenio_group_collections_kcworks.permissions import (
-    group_collections_write_action,
+from invenio_group_collections_kcworks.roles import (
+    ensure_service_capabilities as ensure_group_collections_capabilities,
 )
-from invenio_remote_user_data_kcworks.permissions import (
-    groups_sync_action,
-    users_logout_action,
-    users_sync_action,
+from invenio_remote_user_data_kcworks.roles import (
+    ensure_service_capabilities as ensure_remote_user_data_capabilities,
 )
 
 
@@ -65,8 +64,8 @@ def assign_roles(app, db) -> Callable[..., tuple[Any, Identity]]:
 
     Returns:
         A callable `(user, role_names) -> (user, identity)` that returns the
-        same `user` object passed in and a Flask-Principal `Identity` with
-        roles expanded via `identity_changed`.
+        same `user` object passed in and a Flask-Principal `Identity` loaded
+        via `get_identity` (roles expanded for permission checks).
     """
 
     def _assign(
@@ -84,8 +83,8 @@ def assign_roles(app, db) -> Callable[..., tuple[Any, Identity]]:
             existing.add(role_name)
         datastore.commit()
 
-        identity = Identity(account_user.id)
-        identity_changed.send(app, identity=identity)
+        merged_user = db.session.merge(account_user)
+        identity = get_identity(merged_user)
         return user, identity
 
     return _assign
@@ -93,18 +92,20 @@ def assign_roles(app, db) -> Callable[..., tuple[Any, Identity]]:
 
 @pytest.fixture(scope="session")
 def admin_roles(bootstrap_app, database):
-    """Create baseline admin roles and their access-action mappings.
+    """Create baseline admin roles and inter-app capability roles.
 
-    Besides creating the role rows, this links the `administration` role to
-    the `administration-access` action. Permission policies that use the
-    `Administration` generator emit an `administration-access` *action*
-    need; that need only expands to a concrete `Need(role="administration")`
-    if the DB has this action->role mapping (mirroring production, where the
-    role is granted the action at instance setup).
+    Links the `administration` / `superuser-access` roles to their access
+    actions. Permission policies that use the `Administration` generator emit
+    an `administration-access` *action* need; that need only expands to a
+    concrete `Need(role="administration")` if the DB has this action->role
+    mapping (mirroring production, where the role is granted the action at
+    instance setup).
 
-    Also ensures the four inter-app service capability roles
-    (`users-sync`, `groups-sync`, `users-logout`,
-    `group-collections-write`) exist with their ActionRoles bindings.
+    Inter-app capability roles and service accounts are owned by the 
+    remote-user-data and group-collections packages. Those packages also 
+    ensure on app finalize, but finalize runs during `bootstrap_app` *before* 
+    session `create_all`, so this fixture re-runs the package ensures once 
+    tables exist.
     """
     with bootstrap_app.app_context():
         datastore = current_accounts.datastore
@@ -113,10 +114,6 @@ def admin_roles(bootstrap_app, database):
             "administration",
             "administration-moderation",
             "superuser-access",
-            "users-sync",
-            "groups-sync",
-            "users-logout",
-            "group-collections-write",
         ):
             if datastore.find_role(role_name) is None:
                 datastore.create_role(name=role_name)
@@ -126,11 +123,7 @@ def admin_roles(bootstrap_app, database):
         superuser_role = datastore.find_role("superuser-access")
         _allow_action_role(administration_access_action, administration_role)
         _allow_action_role(superuser_access, superuser_role)
-        _allow_action_role(users_sync_action, datastore.find_role("users-sync"))
-        _allow_action_role(groups_sync_action, datastore.find_role("groups-sync"))
-        _allow_action_role(users_logout_action, datastore.find_role("users-logout"))
-        _allow_action_role(
-            group_collections_write_action,
-            datastore.find_role("group-collections-write"),
-        )
         db.session.commit()
+
+        ensure_remote_user_data_capabilities()
+        ensure_group_collections_capabilities()

@@ -45,6 +45,49 @@ def get_authenticated_identity(user: User | Identity) -> Identity:
     return identity
 
 
+def get_durable_service_user(username: str) -> tuple[User, Identity]:
+    """Return a session-seeded inter-app service account and its identity.
+
+    Looks up accounts from package `SERVICE_ACCOUNTS` tuples (RUD + group
+    collections), seeded by those packages' ensure hooks / `admin_roles`.
+
+    Args:
+        username: Service-account username (e.g. `svc-commons-profiles`,
+            `svc-group-collections`).
+
+    Returns:
+        `(user, identity)` with roles loaded via `get_identity`.
+
+    Raises:
+        KeyError: If `username` is not a known service account.
+        RuntimeError: If the account row is missing from the database.
+    """
+    from invenio_group_collections_kcworks.roles import (
+        SERVICE_ACCOUNTS as GROUP_COLLECTIONS_SERVICE_ACCOUNTS,
+    )
+    from invenio_remote_user_data_kcworks.roles import (
+        SERVICE_ACCOUNTS as REMOTE_USER_DATA_SERVICE_ACCOUNTS,
+    )
+
+    specs = (
+        REMOTE_USER_DATA_SERVICE_ACCOUNTS + GROUP_COLLECTIONS_SERVICE_ACCOUNTS
+    )
+    try:
+        spec = next(s for s in specs if s.username == username)
+    except StopIteration as exc:
+        raise KeyError(f"Unknown service account username: {username!r}") from exc
+
+    user = current_accounts.datastore.find_user(username=spec.username)
+    if user is None:
+        user = current_accounts.datastore.find_user(email=spec.email)
+    if user is None:
+        raise RuntimeError(
+            f"Expected durable service user {spec.username!r} ({spec.email!r}); "
+            "ensure admin_roles / package ensure_service_capabilities ran"
+        )
+    return user, get_identity(user)
+
+
 @pytest.fixture(scope="function")
 def anon_identity():
     """Anonymous identity fixture for UI view tests.

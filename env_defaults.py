@@ -7,28 +7,33 @@
 
 """Central defaults for test process environment."""
 
-from __future__ import annotations
-
 import os
 
 PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN = "pytest-mock-commons-profiles-token"
+PYTEST_DEFAULT_COMMONS_SSO_LOGOUT_API_TOKEN = "pytest-mock-commons-sso-logout-token"
 
 
 def set_default_os_env() -> None:
     """Set default OS env vars for testing.
 
-    Intended to be called once at suite startup
+    Intended to be called once at suite startup. Profiles and SSO logout
+    placeholders are distinct so inbound static-token isolation tests can tell
+    the two bearers apart without further monkeypatching.
     """
-    os.environ["COMMONS_PROFILES_API_TOKEN"] = PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN
+    os.environ["COMMONS_PROFILES_API_TOKEN"] = (
+        PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN
+    )
+    os.environ["COMMONS_SSO_LOGOUT_API_TOKEN"] = (
+        PYTEST_DEFAULT_COMMONS_SSO_LOGOUT_API_TOKEN
+    )
 
 
 def commons_profiles_api_token_is_live_configured() -> bool:
     """True when a non-placeholder Profiles bearer token is set.
 
-    The session autouse fixture calls `setdefault` with
-    `PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN` so mocked client code always
-    sees a value; live IDMS tests must skip unless the operator replaced it
-    with a real token.
+    Suite startup sets `PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN` so mocked
+    client code always sees a value; live IDMS tests must skip unless the
+    operator replaced it with a real token.
 
     Returns:
         Whether `COMMONS_PROFILES_API_TOKEN` is set to a live value.

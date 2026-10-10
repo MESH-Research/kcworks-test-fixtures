@@ -126,6 +126,9 @@ def _idms_static_api_token_before_request() -> None:
     if not user or not user.active:
         return
 
+    # Match invenio_oauth2server's oauth path so require_api_auth does not
+    # treat the static bearer as a JWT (ACCOUNTS_JWT_ENABLE).
+    user.login_via_oauth2 = True
     g._login_user = user
     identity_changed.send(
         current_app._get_current_object(),
@@ -221,41 +224,106 @@ def mock_logout_signal_receiver(requests_mock):
     return mock_receiver
 
 
-_IDMS_STATIC_API_TEST_TOKEN = "test-idms-static-api-token"
+# Mirrors `site/kcworks/config/auth.py`. Opt-in fixtures install this map when
+# a test needs inbound static-token auth (parent suites may already load it
+# from invenio.cfg; package suites often do not).
+_SPLIT_STATIC_API_TOKEN_ROUTES = {
+    "/api/webhooks/user_data_update": {
+        "token_env": "COMMONS_PROFILES_API_TOKEN",
+        "user_id_config": "STATIC_API_TOKEN_USER_ID_PROFILES",
+    },
+    "/api/webhooks/users/update": {
+        "token_env": "COMMONS_PROFILES_API_TOKEN",
+        "user_id_config": "STATIC_API_TOKEN_USER_ID_PROFILES",
+    },
+    "/api/webhooks/users/logout": {
+        "token_env": "COMMONS_SSO_LOGOUT_API_TOKEN",
+        "user_id_config": "STATIC_API_TOKEN_USER_ID_SSO",
+    },
+    "/webhooks/user_data_update": {
+        "token_env": "COMMONS_PROFILES_API_TOKEN",
+        "user_id_config": "STATIC_API_TOKEN_USER_ID_PROFILES",
+    },
+    "/webhooks/users/update": {
+        "token_env": "COMMONS_PROFILES_API_TOKEN",
+        "user_id_config": "STATIC_API_TOKEN_USER_ID_PROFILES",
+    },
+    "/webhooks/users/logout": {
+        "token_env": "COMMONS_SSO_LOGOUT_API_TOKEN",
+        "user_id_config": "STATIC_API_TOKEN_USER_ID_SSO",
+    },
+}
 
 
 @pytest.fixture(scope="function")
-def idms_static_api_auth(
+def idms_static_api_principals(
     app,
-    admin,
-    admin_role_need,
+    admin_roles,
     monkeypatch,
 ) -> dict[str, str]:
-    """HTTP headers with `Authorization: Bearer` for IDMS static-token routes.
+    """Enable inbound static-token auth with distinct Profiles and SSO bearers.
 
-    Sets `TEST_IDMS_STATIC_API_TOKEN` (see `STATIC_API_TOKEN_ROUTES` in test
-    config) and `STATIC_API_TOKEN_USER_ID` to `admin` so the before-request
-    hook matches production KCWorks behaviour.
+    Looks up the durable `svc-commons-profiles` / `svc-commons-sso` accounts
+    seeded by package ensure (via `admin_roles`), then:
 
-    We try first to use COMMONS_PROFILES_API_TOKEN because that's a de facto token
-    name in the parent project test context.
-
-    Args:
-        app: Flask application.
-        admin: User whose id is configured as the static-token principal.
-        admin_role_need: Links `administration_access_action` to the admin role.
-        monkeypatch: Pytest monkeypatch fixture.
+    - Keeps distinct `COMMONS_PROFILES_API_TOKEN` /
+      `COMMONS_SSO_LOGOUT_API_TOKEN` values
+    - Points `STATIC_API_TOKEN_USER_ID_*` at those users
+    - Installs the split `STATIC_API_TOKEN_ROUTES` map and before-request hook
 
     Returns:
-        Headers dict suitable for requests to routes listed in
-        `STATIC_API_TOKEN_ROUTES`.
+        Dict with `profiles_token` and `sso_token` bearer strings (no
+        `Bearer` prefix). Prefer `idms_static_api_auth` /
+        `idms_sso_static_api_auth` for request headers.
     """
-    static_token = os.getenv("COMMONS_PROFILES_API_TOKEN")
-    if not static_token:
-        static_token = _IDMS_STATIC_API_TEST_TOKEN
-    monkeypatch.setenv("TEST_IDMS_STATIC_API_TOKEN", static_token)
-    app.config["STATIC_API_TOKEN_USER_ID"] = admin.user.id
-    return {"Authorization": f"Bearer {static_token}"}
+    from tests.fixtures.env_defaults import (
+        PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN,
+        PYTEST_DEFAULT_COMMONS_SSO_LOGOUT_API_TOKEN,
+    )
+    from tests.fixtures.users import get_durable_service_user
+
+    profiles_token = (
+        os.getenv("COMMONS_PROFILES_API_TOKEN")
+        or PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN
+    )
+    sso_token = (
+        os.getenv("COMMONS_SSO_LOGOUT_API_TOKEN")
+        or PYTEST_DEFAULT_COMMONS_SSO_LOGOUT_API_TOKEN
+    )
+    # Keep them distinct even if a caller left SSO unset/equal to Profiles.
+    if sso_token == profiles_token:
+        sso_token = PYTEST_DEFAULT_COMMONS_SSO_LOGOUT_API_TOKEN
+        if sso_token == profiles_token:
+            sso_token = f"{profiles_token}-sso"
+
+    monkeypatch.setenv("COMMONS_PROFILES_API_TOKEN", profiles_token)
+    monkeypatch.setenv("COMMONS_SSO_LOGOUT_API_TOKEN", sso_token)
+
+    sync_user, _sync_identity = get_durable_service_user("svc-commons-profiles")
+    logout_user, _logout_identity = get_durable_service_user("svc-commons-sso")
+
+    app.config["STATIC_API_TOKEN_ROUTES"] = dict(_SPLIT_STATIC_API_TOKEN_ROUTES)
+    app.config["STATIC_API_TOKEN_USER_ID_PROFILES"] = sync_user.id
+    app.config["STATIC_API_TOKEN_USER_ID_SSO"] = logout_user.id
+    register_idms_static_api_token_before_request(app)
+
+    return {"profiles_token": profiles_token, "sso_token": sso_token}
+
+
+@pytest.fixture(scope="function")
+def idms_static_api_auth(idms_static_api_principals) -> dict[str, str]:
+    """`Authorization` headers for Profiles sync static-token routes."""
+    return {
+        "Authorization": f"Bearer {idms_static_api_principals['profiles_token']}",
+    }
+
+
+@pytest.fixture(scope="function")
+def idms_sso_static_api_auth(idms_static_api_principals) -> dict[str, str]:
+    """`Authorization` headers for SSO logout static-token routes."""
+    return {
+        "Authorization": f"Bearer {idms_static_api_principals['sso_token']}",
+    }
 
 
 IDMS_MEMBERS_RESPONSE = {
