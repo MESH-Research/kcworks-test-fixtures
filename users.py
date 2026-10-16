@@ -65,13 +65,12 @@ def get_durable_service_user(username: str) -> tuple[User, Identity]:
     from invenio_group_collections_kcworks.roles import (
         SERVICE_ACCOUNTS as GROUP_COLLECTIONS_SERVICE_ACCOUNTS,
     )
+
     from invenio_remote_user_data_kcworks.roles import (
         SERVICE_ACCOUNTS as REMOTE_USER_DATA_SERVICE_ACCOUNTS,
     )
 
-    specs = (
-        REMOTE_USER_DATA_SERVICE_ACCOUNTS + GROUP_COLLECTIONS_SERVICE_ACCOUNTS
-    )
+    specs = REMOTE_USER_DATA_SERVICE_ACCOUNTS + GROUP_COLLECTIONS_SERVICE_ACCOUNTS
     try:
         spec = next(s for s in specs if s.username == username)
     except StopIteration as exc:

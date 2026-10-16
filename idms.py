@@ -135,8 +135,7 @@ def _idms_static_api_token_before_request() -> None:
         identity=Identity(user.id),  # type: ignore[arg-type]
     )
     scopes = {
-        sid
-        for sid, _ in current_oauth2server.scope_choices(exclude_internal=False)
+        sid for sid, _ in current_oauth2server.scope_choices(exclude_internal=False)
     }
     request.oauth = _OAuthStandIn(  # type: ignore[attr-defined]
         user=user,
@@ -312,7 +311,11 @@ def idms_static_api_principals(
 
 @pytest.fixture(scope="function")
 def idms_static_api_auth(idms_static_api_principals) -> dict[str, str]:
-    """`Authorization` headers for Profiles sync static-token routes."""
+    """`Authorization` headers for Profiles sync static-token routes.
+
+    Returns:
+        dict[str, str]: Header map with a Profiles Bearer token.
+    """
     return {
         "Authorization": f"Bearer {idms_static_api_principals['profiles_token']}",
     }
@@ -320,7 +323,11 @@ def idms_static_api_auth(idms_static_api_principals) -> dict[str, str]:
 
 @pytest.fixture(scope="function")
 def idms_sso_static_api_auth(idms_static_api_principals) -> dict[str, str]:
-    """`Authorization` headers for SSO logout static-token routes."""
+    """`Authorization` headers for SSO logout static-token routes.
+
+    Returns:
+        dict[str, str]: Header map with an SSO Bearer token.
+    """
     return {
         "Authorization": f"Bearer {idms_static_api_principals['sso_token']}",
     }

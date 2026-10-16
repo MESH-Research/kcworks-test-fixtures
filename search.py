@@ -45,6 +45,9 @@ def _reset_alias_names(
 
     ``preserved`` holds top-level alias keys (e.g. ``"vocabularies"``). Leaves
     under those roots (e.g. ``"vocabularies-vocabulary-v1.0.0"``) are skipped.
+
+    Returns:
+        list[str]: Leaf alias / mapping ids to delete and recreate.
     """
     reset_roots = set(active_aliases) - preserved
     names: list[str] = []

@@ -18,11 +18,10 @@ from invenio_access.utils import get_identity
 from invenio_accounts.proxies import current_accounts
 from invenio_administration.permissions import administration_access_action
 from invenio_db import db
-
-
 from invenio_group_collections_kcworks.roles import (
     ensure_service_capabilities as ensure_group_collections_capabilities,
 )
+
 from invenio_remote_user_data_kcworks.roles import (
     ensure_service_capabilities as ensure_remote_user_data_capabilities,
 )
@@ -101,10 +100,10 @@ def admin_roles(bootstrap_app, database):
     mapping (mirroring production, where the role is granted the action at
     instance setup).
 
-    Inter-app capability roles and service accounts are owned by the 
-    remote-user-data and group-collections packages. Those packages also 
-    ensure on app finalize, but finalize runs during `bootstrap_app` *before* 
-    session `create_all`, so this fixture re-runs the package ensures once 
+    Inter-app capability roles and service accounts are owned by the
+    remote-user-data and group-collections packages. Those packages also
+    ensure on app finalize, but finalize runs during `bootstrap_app` *before*
+    session `create_all`, so this fixture re-runs the package ensures once
     tables exist.
     """
     with bootstrap_app.app_context():

@@ -197,11 +197,15 @@ test_config_stats["STATS_AGGREGATIONS"] = {
 
 
 @pytest.fixture(scope="function")
-def create_stats_indices(app):
+def create_stats_indices(app, search_clear):
     """Create stats indices.
+
+    Depends on `search_clear` so composable stats templates are wiped before
+    re-registration (avoids leftover prefixed templates inflating counts).
 
     Parameters:
         app: The application.
+        search_clear: Search client fixture that clears stats artifacts first.
     """
     configs = {
         **test_config_stats["STATS_EVENTS"],
