@@ -83,6 +83,11 @@ def search_clear(search) -> Generator[OpenSearch, None, None]:
         PRESERVED_SEARCH_ALIASES,
     )
 
+    # Wipe composable stats index templates before the test so leftovers from
+    # another prefix (e.g. app SEARCH_INDEX_PREFIX=kcworks-) cannot inflate
+    # template-count assertions. Legacy delete_template does not remove these.
+    current_search_client.indices.delete_index_template("*stats*", ignore=[404])
+
     yield search
 
     if reset_aliases:
@@ -91,4 +96,5 @@ def search_clear(search) -> Generator[OpenSearch, None, None]:
 
     current_search_client.indices.delete("*stats*", ignore=[404])
     current_search_client.indices.delete_template("*stats*", ignore=[404])
+    current_search_client.indices.delete_index_template("*stats*", ignore=[404])
     current_search_client.indices.refresh(index="*")
