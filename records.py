@@ -1759,6 +1759,150 @@ def full_sample_record_metadata(users):
     }
 
 
+def _record_metadata_with_defaults(
+    record_metadata,
+    *,
+    type_defaults: dict[str, Any],
+    metadata_in: dict | None = None,
+    **kwargs,
+) -> TestRecordMetadata:
+    """Build record_metadata from shared defaults plus type overlays.
+
+    Type overlays are merged into default_metadata_in and passed as metadata_in
+    at construction (not applied afterwards via update_metadata).
+
+    Args:
+        record_metadata: The shared record_metadata factory.
+        type_defaults: Type-specific metadata_in overlays (merged into defaults).
+        metadata_in: Optional caller overlays merged on top of type defaults.
+        **kwargs: Forwarded to record_metadata (community_list, owner_id, etc.).
+
+    Returns:
+        TestRecordMetadata constructed with the merged metadata_in.
+    """
+    merged = deepcopy(TestRecordMetadata.default_metadata_in)
+    for key, value in type_defaults.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = {**merged[key], **deepcopy(value)}
+        else:
+            merged[key] = deepcopy(value)
+    if metadata_in:
+        for key, value in metadata_in.items():
+            if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                merged[key] = {**merged[key], **deepcopy(value)}
+            else:
+                merged[key] = deepcopy(value)
+    return record_metadata(metadata_in=merged, **kwargs)
+
+
+@pytest.fixture(scope="function")
+def journal_article_record_metadata(record_metadata):
+    """record_metadata factory preconfigured as a journal article.
+
+    Returns:
+        Callable: Same contract as record_metadata, with journal type overlays.
+    """
+    type_defaults = {
+        "metadata": {"resource_type": {"id": "textDocument-journalArticle"}},
+        "custom_fields": {
+            "journal:journal": {
+                "title": "Journal of Examples",
+                "issn": "1234-5678",
+                "volume": "4",
+                "issue": "2",
+                "pages": "45",
+            },
+        },
+    }
+
+    def _factory(metadata_in: dict | None = None, **kwargs):
+        """Create journal-article TestRecordMetadata.
+
+        Returns:
+            TestRecordMetadata with textDocument-journalArticle and journal fields.
+        """
+        return _record_metadata_with_defaults(
+            record_metadata,
+            type_defaults=type_defaults,
+            metadata_in=metadata_in,
+            **kwargs,
+        )
+
+    return _factory
+
+
+@pytest.fixture(scope="function")
+def blog_post_record_metadata(record_metadata):
+    """record_metadata factory preconfigured as a blog post.
+
+    Returns:
+        Callable: Same contract as record_metadata, with blog type overlays.
+    """
+    type_defaults = {
+        "metadata": {
+            "resource_type": {"id": "textDocument-blogPost"},
+            "identifiers": [
+                {
+                    "scheme": "url",
+                    "identifier": "https://blog.example.org/posts/fixture",
+                }
+            ],
+        },
+        "custom_fields": {
+            "journal:journal": {"title": "Example Commons Blog"},
+        },
+    }
+
+    def _factory(metadata_in: dict | None = None, **kwargs):
+        """Create blog-post TestRecordMetadata.
+
+        Returns:
+            TestRecordMetadata with textDocument-blogPost, URL id, and blog title.
+        """
+        return _record_metadata_with_defaults(
+            record_metadata,
+            type_defaults=type_defaults,
+            metadata_in=metadata_in,
+            **kwargs,
+        )
+
+    return _factory
+
+
+@pytest.fixture(scope="function")
+def book_section_record_metadata(record_metadata):
+    """record_metadata factory preconfigured as a book section.
+
+    Returns:
+        Callable: Same contract as record_metadata, with book-section overlays.
+    """
+    type_defaults = {
+        "metadata": {"resource_type": {"id": "textDocument-bookSection"}},
+        "custom_fields": {
+            "imprint:imprint": {
+                "title": "Edited Volume of Examples",
+                "isbn": "978-1-23456-789-0",
+                "place": "Ann Arbor",
+            },
+        },
+    }
+
+    def _factory(metadata_in: dict | None = None, **kwargs):
+        """Create book-section TestRecordMetadata.
+
+        Returns:
+            TestRecordMetadata with textDocument-bookSection and imprint fields.
+        """
+        return _record_metadata_with_defaults(
+            record_metadata,
+            type_defaults=type_defaults,
+            metadata_in=metadata_in,
+            **kwargs,
+        )
+
+    return _factory
+
+
 def enhance_metadata_with_funding_and_affiliations(metadata, record_index) -> None:
     """Enhance metadata with funder and enhanced affiliation data for testing.
 

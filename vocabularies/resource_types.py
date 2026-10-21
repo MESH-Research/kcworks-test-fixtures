@@ -75,6 +75,28 @@ RESOURCE_TYPES = [
         "type": "resourcetypes",
     },
     {
+        "id": "textDocument-blogPost",
+        "icon": "file alternate",
+        "props": {
+            "coar": "blog post",
+            "coar_type": "c_6947",
+            "csl": "post-weblog",
+            "datacite_general": "Text",
+            "datacite_type": "Blog Post",
+            "openaire_resourceType": "0001",
+            "openaire_type": "publication",
+            "eurepo": "info:eu-repo/semantics/other",
+            "schema.org": "https://schema.org/BlogPosting",
+            "subtype": "textDocument-blogPost",
+            "type": "textDocument",
+            "marc21_type": "publication",
+            "marc21_subtype": "blogpost",
+        },
+        "title": {"en": "Blog post"},
+        "tags": ["depositable", "linkable"],
+        "type": "resourcetypes",
+    },
+    {
         "id": "textDocument-conferenceProceeding",
         "props": {
             "csl": "conference-paper",
