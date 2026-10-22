@@ -122,6 +122,25 @@ queue_dir() {
   update_dir "$resolved"
 }
 
+# Absolute path of $1 relative to $2, both realpath-canonicalized.
+# Prints nothing and returns 1 if $1 is not under $2.
+path_relative_to() {
+  local target="$1"
+  local base="$2"
+  python3 -c '
+import os, sys
+target = os.path.realpath(sys.argv[1])
+base = os.path.realpath(sys.argv[2])
+try:
+    rel = os.path.relpath(target, base)
+except ValueError:
+    sys.exit(1)
+if rel == ".." or rel.startswith(".." + os.sep):
+    sys.exit(1)
+print(rel)
+' "$target" "$base" 2>/dev/null
+}
+
 stage_parent_gitlink() {
   local fixtures_dir="$1"
   local parent_root path_from_parent sha
@@ -131,10 +150,16 @@ stage_parent_gitlink() {
     echo "Warning: no enclosing git root above $fixtures_dir; gitlink not staged" >&2
     return 0
   fi
-  parent_root="$(git -C "$parent_root" rev-parse --show-toplevel)"
-  path_from_parent="${fixtures_dir#"$parent_root"/}"
-  if [[ "$path_from_parent" == "$fixtures_dir" || -z "$path_from_parent" ]]; then
+  # Canonicalize both sides. `rev-parse --show-toplevel` and `pwd -P` can
+  # disagree on symlink paths, which broke bash prefix stripping.
+  parent_root="$(cd "$(git -C "$parent_root" rev-parse --show-toplevel)" && pwd -P)"
+  fixtures_dir="$(cd "$fixtures_dir" && pwd -P)"
+  if ! path_from_parent="$(path_relative_to "$fixtures_dir" "$parent_root")"; then
     echo "Warning: could not relativize $fixtures_dir under $parent_root" >&2
+    return 0
+  fi
+  if [[ "$path_from_parent" == ..* || -z "$path_from_parent" ]]; then
+    echo "Warning: could not relativize $fixtures_dir under $parent_root (got '$path_from_parent')" >&2
     return 0
   fi
   # Must already be a gitlink in the parent index (mode 160000). Plain
