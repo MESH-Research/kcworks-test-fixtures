@@ -39,7 +39,7 @@ from invenio_vocabularies.contrib.subjects.api import Subject
 from invenio_vocabularies.records.api import Vocabulary
 from sqlalchemy_utils.functions import create_database, database_exists
 
-from tests.conftest import test_config
+from tests.fixtures.app_config import test_config
 from tests.fixtures.idms import register_idms_static_api_token_before_request
 from tests.fixtures.vocabularies.affiliations import ensure_affiliations_vocabulary
 from tests.fixtures.vocabularies.community_types import (

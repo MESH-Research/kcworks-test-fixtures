@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# After a fixtures commit: push to origin, then pull peer checkouts in kcworks.
+#
+# Enable once per clone:
+#   git config core.hooksPath githooks
+
+set -euo pipefail
+
+FIXTURES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$FIXTURES_ROOT"
+
+echo "post-commit: pushing fixtures to origin..."
+git push origin HEAD
+
+echo "post-commit: updating peer fixtures checkouts..."
+"$FIXTURES_ROOT/scripts/update_fixtures.sh"

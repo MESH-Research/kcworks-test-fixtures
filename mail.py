@@ -12,8 +12,21 @@ the pytest-invenio ``mailbox`` fixture (captures outgoing messages) and
 ``enable_mail_sending`` (temporarily sets ``MAIL_SUPPRESS_SEND=False``).
 """
 
+import os
+from typing import Any
+
 import pytest
 
+test_config_mail: dict[str, Any] = {
+    "MAIL_SUPPRESS_SEND": True,
+    "MAIL_SERVER": "smtp.sparkpostmail.com",
+    "MAIL_PORT": 587,
+    "MAIL_USE_TLS": True,
+    "MAIL_USE_SSL": False,
+    "MAIL_USERNAME": os.getenv("SPARKPOST_USERNAME", "test-unused"),
+    "MAIL_PASSWORD": os.getenv("SPARKPOST_API_KEY", "test-unused"),
+    "MAIL_DEFAULT_SENDER": os.getenv("INVENIO_ADMIN_EMAIL", "test@example.com"),
+}
 
 @pytest.fixture
 def enable_mail_sending(running_app):
