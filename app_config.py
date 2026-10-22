@@ -35,6 +35,7 @@ from tests.fixtures.idms import test_config_idms
 from tests.fixtures.logging import test_config_logging
 from tests.fixtures.mail import test_config_mail
 from tests.fixtures.names import test_config_names
+from tests.fixtures.stats import test_config_stats
 from tests.fixtures.urls import test_config_urls
 from tests.fixtures.users import test_config_accounts
 
@@ -49,6 +50,7 @@ test_config: dict[str, Any] = {
     **test_config_idms,
     **test_config_accounts,
     **test_config_names,
+    **test_config_stats,
     "SEARCH_INDEX_PREFIX": "",
     # Root baseline: non-eager so Celery/indexer MQ behaviour is exercised.
     # Suites that want in-process tasks override in their `app_config` wrap.

@@ -6,18 +6,21 @@
 
 """Shared Flask app composition for KCWorks package tests.
 
-Package conftests override via the usual pytest-invenio wrap pattern, e.g.:
+The shared `app` fixture declares queues, installs templates, and pulls in
+`bootstrap_vocabularies` plus `admin_roles`. Suites must load the
+`bootstrap` and `roles` plugins.
+
+Package conftests should only wrap `app` for real extras, e.g.:
 
 ```python
 @pytest.fixture(scope="module")
-def app(app, location, bootstrap_vocabularies, admin_roles):
+def app(app):
     register_idms_static_api_token_before_request(app)
     yield app
 ```
 
 Also override `template_loader_paths` (or `template_loader` entirely),
-`create_app`, and `app_config` as needed. Keep package-specific behaviour in
-the local conftest — do not add shared hook fixtures for it.
+`create_app`, and `app_config` as needed.
 """
 
 from __future__ import annotations
@@ -79,8 +82,14 @@ def template_loader(
 def app(
     app: Flask,
     template_loader: Callable[[Flask], None],
+    bootstrap_vocabularies: object,
+    admin_roles: object,
 ) -> Generator[Flask, None, None]:
-    """Compose the pytest-invenio app with shared queue declare and templates.
+    """Compose the pytest-invenio app with queues, templates, vocab, and roles.
+
+    Depends on `bootstrap_vocabularies` and `admin_roles` so those run for
+    every suite that uses this fixture (requires the `bootstrap` and `roles`
+    plugins).
 
     Yields:
         The Flask application instance.
