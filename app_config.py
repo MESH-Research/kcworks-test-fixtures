@@ -6,10 +6,10 @@
 
 """Shared Flask/Invenio test configuration.
 
-`test_config` is the baseline dict (also used by session bootstrap). The
-`app_config` fixture merges it into pytest-invenio's config. Package conftests
-should wrap `app_config` for suite-specific keys instead of rebuilding the
-whole dict:
+`test_config` is the baseline dict (also used by session bootstrap). Domain
+fragments live in sibling modules (`test_config_mail`, `test_config_urls`,
+…). Package conftests should wrap `app_config` for suite-specific keys
+instead of rebuilding the whole dict:
 
 ```python
 @pytest.fixture(scope="module")
@@ -29,10 +29,14 @@ import pytest
 
 from tests.fixtures.celery import test_config_celery
 from tests.fixtures.custom_fields import test_config_fields
-from tests.fixtures.frontend import MockManifestLoader
+from tests.fixtures.frontend import test_config_frontend
 from tests.fixtures.identifiers import test_config_identifiers
+from tests.fixtures.idms import test_config_idms
 from tests.fixtures.logging import test_config_logging
 from tests.fixtures.mail import test_config_mail
+from tests.fixtures.names import test_config_names
+from tests.fixtures.urls import test_config_urls
+from tests.fixtures.users import test_config_accounts
 
 test_config: dict[str, Any] = {
     **test_config_identifiers,
@@ -40,21 +44,17 @@ test_config: dict[str, Any] = {
     **test_config_logging,
     **test_config_mail,
     **test_config_celery,
+    **test_config_frontend,
+    **test_config_urls,
+    **test_config_idms,
+    **test_config_accounts,
+    **test_config_names,
     "SEARCH_INDEX_PREFIX": "",
     # Root baseline: non-eager so Celery/indexer MQ behaviour is exercised.
     # Suites that want in-process tasks override in their `app_config` wrap.
-    "WEBPACKEXT_MANIFEST_LOADER": MockManifestLoader,
     "DEBUG": True,
-    "DATACITE_ENABLED": True,
-    "DATACITE_USERNAME": "INVALID",
-    "DATACITE_PASSWORD": "INVALID",
-    "DATACITE_DATACENTER_SYMBOL": "TEST",
-    "DATACITE_PREFIX": "10.17613",
-    "DATACITE_TEST_MODE": True,
-    "SITE_API_URL": os.environ.get("INVENIO_SITE_API_URL", "http://localhost/api"),
-    "SITE_UI_URL": os.environ.get("INVENIO_SITE_UI_URL", "http://localhost"),
+    "BABEL_DEFAULT_TIMEZONE": "America/Detroit",
 }
-test_config["OAISERVER_ID_PREFIX"] = test_config["SITE_UI_URL"]
 
 
 def apply_connection_env(app_config: dict[str, Any]) -> dict[str, Any]:

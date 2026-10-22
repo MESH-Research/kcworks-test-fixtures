@@ -40,6 +40,7 @@ from invenio_vocabularies.records.api import Vocabulary
 from sqlalchemy_utils.functions import create_database, database_exists
 
 from tests.fixtures.app_config import test_config
+from tests.fixtures.env_defaults import set_default_os_env
 from tests.fixtures.idms import register_idms_static_api_token_before_request
 from tests.fixtures.vocabularies.affiliations import ensure_affiliations_vocabulary
 from tests.fixtures.vocabularies.community_types import (
@@ -62,6 +63,10 @@ from tests.fixtures.vocabularies.roles import (
 )
 from tests.fixtures.vocabularies.subjects import ensure_subjects_vocabulary
 from tests.fixtures.vocabularies.title_types import ensure_title_types_vocabulary
+
+# Suite-wide placeholder env (Profiles / SSO tokens, etc.) for any conftest
+# that loads this plugin.
+set_default_os_env()
 
 
 @pytest.fixture(scope="session")

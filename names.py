@@ -8,6 +8,7 @@
 """Test fixtures related to the names vocabulary."""
 
 from pathlib import Path
+from typing import Any
 
 from invenio_i18n import lazy_gettext as _
 from invenio_rdm_records.config import always_valid
@@ -19,6 +20,7 @@ from invenio_vocabularies.config import (
 # If the file path contains "invenio-stats-dashboard", exclude KCWorks custom schemes
 _IS_GENERIC_CONTEXT = "invenio-stats-dashboard" in str(Path(__file__).resolve())
 
+test_config_names: dict[str, Any] = {}
 
 if not _IS_GENERIC_CONTEXT:
     VOCABULARIES_NAMES_SCHEMES = {
@@ -30,6 +32,9 @@ if not _IS_GENERIC_CONTEXT:
         },
     }
     """Names vocabulary allowed identifier schemes (KCWorks extensions)."""
+    test_config_names = {
+        "VOCABULARIES_NAMES_SCHEMES": VOCABULARIES_NAMES_SCHEMES,
+    }
 
 SAMPLE_NAME_RESULT = {
     "id": "gihctester",

@@ -28,6 +28,7 @@ test_config_mail: dict[str, Any] = {
     "MAIL_DEFAULT_SENDER": os.getenv("INVENIO_ADMIN_EMAIL", "test@example.com"),
 }
 
+
 @pytest.fixture
 def enable_mail_sending(running_app):
     """Temporarily enable mail sending for a test.

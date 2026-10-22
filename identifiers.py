@@ -219,3 +219,13 @@ if not _IS_GENERIC_CONTEXT:
             "datacite": "Other",
         },
     })
+
+# DataCite provider credentials for tests (fake client; do not hit the network).
+test_config_identifiers.update({
+    "DATACITE_ENABLED": True,
+    "DATACITE_USERNAME": "INVALID",
+    "DATACITE_PASSWORD": "INVALID",
+    "DATACITE_DATACENTER_SYMBOL": "TEST",
+    "DATACITE_PREFIX": "10.17613",
+    "DATACITE_TEST_MODE": True,
+})

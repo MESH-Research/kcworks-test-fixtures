@@ -14,3 +14,4 @@ git push origin HEAD
 
 echo "post-commit: updating peer fixtures checkouts..."
 "$FIXTURES_ROOT/scripts/update_fixtures.sh"
+echo "post-commit: peer working trees updated; commit any staged parent gitlink bumps separately."

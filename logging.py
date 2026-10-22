@@ -25,7 +25,6 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import pytest
-
 from flask import Flask
 
 

@@ -20,9 +20,7 @@ def set_default_os_env() -> None:
     placeholders are distinct so inbound static-token isolation tests can tell
     the two bearers apart without further monkeypatching.
     """
-    os.environ["COMMONS_PROFILES_API_TOKEN"] = (
-        PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN
-    )
+    os.environ["COMMONS_PROFILES_API_TOKEN"] = PYTEST_DEFAULT_COMMONS_PROFILES_API_TOKEN
     os.environ["COMMONS_SSO_LOGOUT_API_TOKEN"] = (
         PYTEST_DEFAULT_COMMONS_SSO_LOGOUT_API_TOKEN
     )

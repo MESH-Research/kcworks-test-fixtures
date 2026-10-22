@@ -29,8 +29,30 @@ from invenio_administration.permissions import administration_access_action
 from invenio_oauth2server.models import Token
 from invenio_oauth2server.proxies import current_oauth2server
 from invenio_oauthclient.models import UserIdentity
+from marshmallow import Schema, fields
 from pytest_invenio.fixtures import UserFixtureBase
 from requests_mock.adapter import _Matcher as Matcher
+
+
+class CustomUserProfileSchema(Schema):
+    """The default user profile schema for KCWorks tests."""
+
+    full_name = fields.String()
+    affiliations = fields.String()
+    name_parts = fields.String()
+    name_parts_local = fields.String()
+    identifier_email = fields.String()
+    identifier_orcid = fields.String()
+    identifier_kc_username = fields.String()
+    identifier_other = fields.String()
+    unread_notifications = fields.String()
+
+
+test_config_accounts: dict[str, Any] = {
+    "ACCOUNTS_USER_PROFILE_SCHEMA": CustomUserProfileSchema(),
+    "ACCOUNTS_DEFAULT_EMAIL_VISIBILITY": "public",
+    "ACCOUNTS_DEFAULT_USER_VISIBILITY": "public",
+}
 
 
 def get_authenticated_identity(user: User | Identity) -> Identity:

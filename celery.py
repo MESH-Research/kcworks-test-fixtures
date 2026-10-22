@@ -27,6 +27,7 @@ test_config_celery: dict[str, Any] = {
     "CELERY_TASK_EAGER_PROPAGATES_EXCEPTIONS": True,
 }
 
+
 @pytest.fixture(scope="session")
 def celery_config(celery_config: dict[str, Any]) -> dict[str, Any]:
     """Configure the Celery TestApp used by `celery_worker`.

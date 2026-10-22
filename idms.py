@@ -30,6 +30,16 @@ from invenio_remote_user_data_kcworks.utils.static_token import (
     resolve_static_token_route,
 )
 
+test_config_idms: dict[str, Any] = {
+    "KC_REMOTE_IDPS": ["cilogon"],
+    "SSO_BROKER_RETRY_COOKIE_NAME": "_sso_checked",
+    "SSO_BROKER_COOKIE_TTL": 300,
+    "SSO_BROKER_SILENT_LOGIN_TIMEOUT": 3,
+    "ACCOUNTS_LOGIN_VIEW_FUNCTION": (
+        "invenio_remote_user_data_kcworks.views:sso_broker_login"
+    ),
+}
+
 
 class _AccessTokenStandIn(BaseModel):
     """Minimal stand-in for OAuth `Token`; static-token flow only uses `scopes`."""

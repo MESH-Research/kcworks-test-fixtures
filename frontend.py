@@ -6,6 +6,8 @@
 
 """Pytest fixtures for frontend."""
 
+from typing import Any
+
 from flask_webpackext.manifest import (
     JinjaManifest,
     JinjaManifestEntry,
@@ -43,3 +45,8 @@ class MockManifestLoader(JinjaManifestLoader):
             MockJinjaManifest: A mocked manifest instance.
         """
         return MockJinjaManifest()
+
+
+test_config_frontend: dict[str, Any] = {
+    "WEBPACKEXT_MANIFEST_LOADER": MockManifestLoader,
+}
