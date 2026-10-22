@@ -124,21 +124,31 @@ queue_dir() {
 
 stage_parent_gitlink() {
   local fixtures_dir="$1"
-  local parent_root path_from_parent
+  local parent_root path_from_parent sha
   # Walk from the parent of the fixtures dir so we stage in the superproject,
   # not inside the fixtures submodule itself.
   if ! parent_root="$(enclosing_git_root "$(dirname "$fixtures_dir")")"; then
     echo "Warning: no enclosing git root above $fixtures_dir; gitlink not staged" >&2
     return 0
   fi
+  parent_root="$(git -C "$parent_root" rev-parse --show-toplevel)"
   path_from_parent="${fixtures_dir#"$parent_root"/}"
-  if [[ "$path_from_parent" == "$fixtures_dir" ]]; then
+  if [[ "$path_from_parent" == "$fixtures_dir" || -z "$path_from_parent" ]]; then
     echo "Warning: could not relativize $fixtures_dir under $parent_root" >&2
     return 0
   fi
-  if git -C "$parent_root" add "$path_from_parent"; then
-    STAGED_PARENTS+=("$parent_root:$path_from_parent")
-    echo "Staged gitlink $path_from_parent in $parent_root (commit the parent repo separately)"
+  # Must already be a gitlink in the parent index (mode 160000). Plain
+  # `git add path` often fails for nested submodules ("pathspec did not
+  # match"); update-index --cacheinfo is the reliable way to bump the SHA.
+  if ! git -C "$parent_root" ls-files --stage -- "$path_from_parent" \
+    | grep -q '^160000 '; then
+    echo "Warning: $path_from_parent is not a submodule gitlink in $parent_root; not staging" >&2
+    return 0
+  fi
+  sha="$(git -C "$fixtures_dir" rev-parse HEAD)"
+  if git -C "$parent_root" update-index --cacheinfo "160000,${sha},${path_from_parent}"; then
+    STAGED_PARENTS+=("$parent_root:$path_from_parent@$sha")
+    echo "Staged gitlink $path_from_parent -> ${sha:0:7} in $parent_root (commit the parent repo separately)"
   else
     echo "Warning: failed to stage $path_from_parent in $parent_root" >&2
   fi
