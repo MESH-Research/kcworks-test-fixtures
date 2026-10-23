@@ -52,6 +52,7 @@ test_config: dict[str, Any] = {
     **test_config_names,
     **test_config_stats,
     "SEARCH_INDEX_PREFIX": "",
+    "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     # Root baseline: non-eager so Celery/indexer MQ behaviour is exercised.
     # Suites that want in-process tasks override in their `app_config` wrap.
     "DEBUG": True,
@@ -68,14 +69,23 @@ def apply_connection_env(app_config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         The same mapping, updated in place.
     """
-    # Test-services URI from docker-services-cli only — not INVENIO_SQLALCHEMY_*
-    # (app/runtime DB).
-    if os.environ.get("SQLALCHEMY_DATABASE_URI"):
-        app_config["SQLALCHEMY_DATABASE_URI"] = os.environ["SQLALCHEMY_DATABASE_URI"]
-    if os.environ.get("BROKER_URL"):
-        app_config["BROKER_URL"] = os.environ["BROKER_URL"]
-        app_config["CELERY_BROKER_URL"] = os.environ["BROKER_URL"]
-        app_config["QUEUES_BROKER_URL"] = os.environ["BROKER_URL"]
+    # Test-services URI only (docker-services-cli / test-runner) — not
+    # INVENIO_SQLALCHEMY_* (app/runtime DB). Env when set; else the host
+    # mapping docker-services-cli exports. Without this, create_app falls
+    # through to invenio_app_rdm's invenio-app-rdm@localhost default.
+    app_config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+        "SQLALCHEMY_DATABASE_URI",
+        "postgresql+psycopg2://invenio:invenio@localhost:5432/invenio",
+    )
+    # Same pattern as DB: docker-services-cli / test-runner env when set,
+    # else the host default packages used to hard-code.
+    broker_url = os.environ.get(
+        "BROKER_URL",
+        "amqp://guest:guest@localhost:5672//",
+    )
+    app_config["BROKER_URL"] = broker_url
+    app_config["CELERY_BROKER_URL"] = broker_url
+    app_config["QUEUES_BROKER_URL"] = broker_url
     if os.environ.get("CACHE_REDIS_URL"):
         app_config["CACHE_REDIS_URL"] = os.environ["CACHE_REDIS_URL"]
         app_config["CACHE_TYPE"] = "redis"
