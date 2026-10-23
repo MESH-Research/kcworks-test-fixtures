@@ -10,12 +10,12 @@ Version 1.0.0
 
 For each peer it:
 
-1. `git fetch origin` and hard-resets `main` to `origin/main` (refuses dirty trees unless `UPDATE_FIXTURES_FORCE=1`)
+1. Syncs to this checkout’s `HEAD` via a **local** `git fetch` from the source tree (avoids SSH / remote races after push), falling back to `git fetch origin` + reset to `origin/main` if needed. Refuses dirty trees unless `UPDATE_FIXTURES_FORCE=1`.
 2. Stages the updated submodule gitlink in the enclosing package/monorepo repo
 
 It does **not** commit those parent repos — commit the staged `tests/fixtures` pointer bumps yourself (in each dependency package and/or the monorepo).
 
-`githooks/post-commit` pushes the new fixtures commit to `origin`, then runs that script.
+`githooks/post-commit` pushes the new fixtures commit to `origin`, clears hook-exported `GIT_*` env vars, then runs that script with `UPDATE_FIXTURES_FORCE=1`.
 
 **You must register the hook manually.** Git does not enable committed hooks by default, and cloning or updating this submodule will not turn them on. In each fixtures checkout where you commit (the kcworks `tests/fixtures` tree and any dependency nested copy), run this once from that checkout’s root:
 

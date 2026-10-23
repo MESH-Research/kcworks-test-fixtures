@@ -5,24 +5,34 @@
 # child of the current directory, then of each parent. No-ops if none is found.
 #
 # For each peer fixtures checkout whose origin is kcworks-test-fixtures:
-#   1. fetch origin and hard-reset main to origin/main (fails if dirty unless
-#      UPDATE_FIXTURES_FORCE=1)
+#   1. sync to this checkout's HEAD (local fetch — no remote race / SSH),
+#      falling back to `git fetch origin` + reset to origin/main
 #   2. stage the updated gitlink in the enclosing git repo (dependency package
 #      or kcworks monorepo) so the parent pointer matches the pulled SHA
 #
 # The script does not commit parent repos; commit those submodule bumps yourself.
+#
+# Env:
+#   UPDATE_FIXTURES_FORCE=1 — reset --hard even when the peer working tree is dirty
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Fixtures checkout that contains this script (exclude from updates).
+# When invoked from githooks/post-commit, Git exports GIT_DIR / GIT_WORK_TREE
+# pointing at the source fixtures repo. Clear them so every `git -C` below
+# targets the path we pass, not the hook's repository.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR \
+  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES || true
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# Fixtures checkout that contains this script (exclude from updates; source of SHA).
 THIS_FIXTURES="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 FORCE="${UPDATE_FIXTURES_FORCE:-0}"
 EXPECTED_REMOTE_NEEDLE="kcworks-test-fixtures"
+SOURCE_SHA="$(git -C "$THIS_FIXTURES" rev-parse HEAD)"
 
 find_kcworks_root() {
   local dir
-  dir="$(cd "$1" && pwd)"
+  dir="$(cd "$1" && pwd -P)"
   while true; do
     if [[ -d "$dir/site/kcworks/dependencies" ]]; then
       printf '%s\n' "$dir"
@@ -37,14 +47,20 @@ find_kcworks_root() {
   done
 }
 
-# Nearest ancestor (including dir) that has its own .git (file or directory).
-enclosing_git_root() {
-  local dir
+# Nearest ancestor of dir that has its own .git and is *not* a fixtures checkout.
+# Walking past fixtures avoids staging into the submodule itself when GIT_DIR
+# was wrong or when dirname lands oddly.
+enclosing_superproject_root() {
+  local dir toplevel
   dir="$(cd "$1" && pwd -P)"
   while true; do
     if [[ -e "$dir/.git" ]]; then
-      printf '%s\n' "$dir"
-      return 0
+      if ! is_fixtures_remote "$dir"; then
+        if toplevel="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)"; then
+          printf '%s\n' "$(cd "$toplevel" && pwd -P)"
+          return 0
+        fi
+      fi
     fi
     local parent
     parent="$(dirname "$dir")"
@@ -146,13 +162,10 @@ stage_parent_gitlink() {
   local parent_root path_from_parent sha
   # Walk from the parent of the fixtures dir so we stage in the superproject,
   # not inside the fixtures submodule itself.
-  if ! parent_root="$(enclosing_git_root "$(dirname "$fixtures_dir")")"; then
+  if ! parent_root="$(enclosing_superproject_root "$(dirname "$fixtures_dir")")"; then
     echo "Warning: no enclosing git root above $fixtures_dir; gitlink not staged" >&2
     return 0
   fi
-  # Canonicalize both sides. `rev-parse --show-toplevel` and `pwd -P` can
-  # disagree on symlink paths, which broke bash prefix stripping.
-  parent_root="$(cd "$(git -C "$parent_root" rev-parse --show-toplevel)" && pwd -P)"
   fixtures_dir="$(cd "$fixtures_dir" && pwd -P)"
   if ! path_from_parent="$(path_relative_to "$fixtures_dir" "$parent_root")"; then
     echo "Warning: could not relativize $fixtures_dir under $parent_root" >&2
@@ -179,6 +192,21 @@ stage_parent_gitlink() {
   fi
 }
 
+# Point peer at SOURCE_SHA using the local source checkout (no network).
+sync_dir_from_local() {
+  local dir="$1"
+  git -C "$dir" fetch "$THIS_FIXTURES" "$SOURCE_SHA" \
+    && git -C "$dir" checkout -B main "$SOURCE_SHA"
+}
+
+# Fall back when local fetch is unavailable (e.g. script run outside a hook).
+sync_dir_from_origin() {
+  local dir="$1"
+  git -C "$dir" fetch origin \
+    && git -C "$dir" checkout main \
+    && git -C "$dir" reset --hard origin/main
+}
+
 update_dir() {
   local dir="$1"
   local dirty
@@ -190,9 +218,8 @@ update_dir() {
     return 0
   fi
 
-  if git -C "$dir" fetch origin \
-    && git -C "$dir" checkout main \
-    && git -C "$dir" reset --hard origin/main; then
+  if sync_dir_from_local "$dir" \
+    || sync_dir_from_origin "$dir"; then
     SUCCESS_DIRS+=("$dir")
     echo "Successfully updated $dir -> $(git -C "$dir" rev-parse --short HEAD)"
     stage_parent_gitlink "$dir"

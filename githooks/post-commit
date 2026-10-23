@@ -6,12 +6,19 @@
 
 set -euo pipefail
 
-FIXTURES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FIXTURES_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$FIXTURES_ROOT"
 
 echo "post-commit: pushing fixtures to origin..."
 git push origin HEAD
 
+# Git sets GIT_DIR / GIT_WORK_TREE / etc. for the duration of the hook. Those
+# leak into update_fixtures.sh and make `git -C <peer>` operate on *this*
+# fixtures checkout instead of the peer — broken staging and flaky resets.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR \
+  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES || true
+
 echo "post-commit: updating peer fixtures checkouts..."
-"$FIXTURES_ROOT/scripts/update_fixtures.sh"
+# Align peers to the commit we just made, even if a peer tree was dirty.
+UPDATE_FIXTURES_FORCE=1 "$FIXTURES_ROOT/scripts/update_fixtures.sh"
 echo "post-commit: peer working trees updated; commit any staged parent gitlink bumps separately."
