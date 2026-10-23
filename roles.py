@@ -18,12 +18,12 @@ from invenio_access.utils import get_identity
 from invenio_accounts.proxies import current_accounts
 from invenio_administration.permissions import administration_access_action
 from invenio_db import db
-from invenio_group_collections_kcworks.roles import (
-    ensure_service_capabilities as ensure_group_collections_capabilities,
-)
-
 from invenio_remote_user_data_kcworks.roles import (
     ensure_service_capabilities as ensure_remote_user_data_capabilities,
+)
+
+from invenio_group_collections_kcworks.roles import (
+    ensure_service_capabilities as ensure_group_collections_capabilities,
 )
 
 

@@ -68,6 +68,10 @@ def apply_connection_env(app_config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         The same mapping, updated in place.
     """
+    # Test-services URI from docker-services-cli only — not INVENIO_SQLALCHEMY_*
+    # (app/runtime DB).
+    if os.environ.get("SQLALCHEMY_DATABASE_URI"):
+        app_config["SQLALCHEMY_DATABASE_URI"] = os.environ["SQLALCHEMY_DATABASE_URI"]
     if os.environ.get("BROKER_URL"):
         app_config["BROKER_URL"] = os.environ["BROKER_URL"]
         app_config["CELERY_BROKER_URL"] = os.environ["BROKER_URL"]

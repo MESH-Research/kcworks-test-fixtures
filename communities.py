@@ -315,26 +315,32 @@ def minimal_community_factory(
             "owner": [],
         }
 
-        # Mock the search API for the community
+        # Mock Commons Search provisioning when it is configured. Suites that
+        # do not load REMOTE_API_PROVISIONER_EVENTS (no invenio.cfg) skip this
+        # — there is nothing to call. When the config is present, mocking
+        # keeps community create offline (MOCK_SIGNAL_SUBSCRIBER + requests).
         if mock_search_api:
-            # Set up mock subscriber and intercept message to callback
-            monkeypatch.setenv("MOCK_SIGNAL_SUBSCRIBER", "True")
+            community_events = (
+                app.config.get("REMOTE_API_PROVISIONER_EVENTS") or {}
+            ).get("community")
+            if community_events:
+                monkeypatch.setenv("MOCK_SIGNAL_SUBSCRIBER", "True")
 
-            search_api_url = list(
-                app.config["REMOTE_API_PROVISIONER_EVENTS"]["community"].keys()
-            )[0]
-            remote_response = {
-                "_internal_id": "1234AbCD?",  # can't mock because set at runtime
-                "_id": "2E9SqY0Bdd2QL-HGeUuA34AbCD?",
-                "title": "My Community",
-                "primary_url": "http://works.kcommons.org/collections/my-community",
-            }
-            requests_mock.request(
-                "POST",
-                search_api_url,
-                json=remote_response,
-                headers={"Authorization": "Bearer 12345"},
-            )  # noqa: E501
+                search_api_url = list(community_events.keys())[0]
+                remote_response = {
+                    "_internal_id": "1234AbCD?",  # can't mock because set at runtime
+                    "_id": "2E9SqY0Bdd2QL-HGeUuA34AbCD?",
+                    "title": "My Community",
+                    "primary_url": (
+                        "http://works.kcommons.org/collections/my-community"
+                    ),
+                }
+                requests_mock.request(
+                    "POST",
+                    search_api_url,
+                    json=remote_response,
+                    headers={"Authorization": "Bearer 12345"},
+                )
 
         if owner is None:
             owner_user = get_or_create_user(
