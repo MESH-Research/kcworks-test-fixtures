@@ -39,7 +39,7 @@ from invenio_vocabularies.contrib.subjects.api import Subject
 from invenio_vocabularies.records.api import Vocabulary
 from sqlalchemy_utils.functions import create_database, database_exists
 
-from tests.fixtures.app_config import test_config
+from tests.fixtures.app_config import apply_connection_env, test_config
 from tests.fixtures.env_defaults import set_default_os_env
 from tests.fixtures.idms import register_idms_static_api_token_before_request
 from tests.fixtures.vocabularies.affiliations import ensure_affiliations_vocabulary
@@ -108,7 +108,9 @@ def bootstrap_app(bootstrap_instance_path: str) -> Flask:
     Returns:
         The bootstrap Flask application.
     """
-    app = create_bootstrap_app(**dict(test_config))
+    # Same connection resolution as the module `app_config` fixture (env or
+    # docker-services-cli host default). Bare `test_config` has no DB URI.
+    app = create_bootstrap_app(**apply_connection_env(dict(test_config)))
     register_idms_static_api_token_before_request(app)
     return app
 
