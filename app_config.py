@@ -26,6 +26,7 @@ import os
 from typing import Any
 
 import pytest
+from sqlalchemy.pool import NullPool
 
 from tests.fixtures.celery import test_config_celery
 from tests.fixtures.custom_fields import test_config_fields
@@ -53,6 +54,15 @@ test_config: dict[str, Any] = {
     **test_config_stats,
     "SEARCH_INDEX_PREFIX": "",
     "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+    # NullPool: standard for pytest. Module-scoped apps otherwise leave
+    # QueuePool connections around until GC and exhaust Postgres
+    # max_connections in long CI runs. Per-checkout connect cost is small
+    # next to app/vocab/search setup.
+    "SQLALCHEMY_ENGINE_OPTIONS": {
+        "poolclass": NullPool,
+        # Required when overriding ENGINE_OPTIONS (invenio_db.ext).
+        "connect_args": {"options": "-c timezone=UTC"},
+    },
     # Root baseline: non-eager so Celery/indexer MQ behaviour is exercised.
     # Suites that want in-process tasks override in their `app_config` wrap.
     "DEBUG": True,

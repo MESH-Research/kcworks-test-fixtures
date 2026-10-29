@@ -86,6 +86,9 @@ def quiet_third_party_loggers() -> None:
     logging.getLogger("opensearch").setLevel(logging.WARNING)
     logging.getLogger("opensearchpy").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.INFO)
+    # PersistentIdentifier.create logs INFO per row; session vocab bootstrap
+    # creates hundreds. Keep WARNING+ (e.g. IntegrityError exceptions).
+    logging.getLogger("invenio-pidstore").setLevel(logging.WARNING)
 
 
 @pytest.fixture(scope="session")
