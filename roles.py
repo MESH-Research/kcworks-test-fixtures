@@ -25,7 +25,14 @@ from invenio_remote_user_data_kcworks.roles import (
 from invenio_group_collections_kcworks.roles import (
     ensure_service_capabilities as ensure_group_collections_capabilities,
 )
-from invenio_record_importer_kcworks.roles import ensure_bulk_import_role
+
+try:
+    from invenio_record_importer_kcworks.roles import ensure_bulk_import_role
+except ImportError:
+
+    def ensure_bulk_import_role() -> str | None:
+        """No-op when the importer package has no roles module yet."""
+        return None
 
 
 def _allow_action_role(action, role):
