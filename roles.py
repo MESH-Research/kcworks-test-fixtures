@@ -18,12 +18,12 @@ from invenio_access.utils import get_identity
 from invenio_accounts.proxies import current_accounts
 from invenio_administration.permissions import administration_access_action
 from invenio_db import db
-from invenio_remote_user_data_kcworks.roles import (
-    ensure_service_capabilities as ensure_remote_user_data_capabilities,
-)
-
 from invenio_group_collections_kcworks.roles import (
     ensure_service_capabilities as ensure_group_collections_capabilities,
+)
+
+from invenio_remote_user_data_kcworks.roles import (
+    ensure_service_capabilities as ensure_remote_user_data_capabilities,
 )
 
 try:
@@ -31,7 +31,11 @@ try:
 except ImportError:
 
     def ensure_bulk_import_role() -> str | None:
-        """No-op when the importer package has no roles module yet."""
+        """No-op when the importer package has no roles module yet.
+
+        Returns:
+            None in this stub; real version may return string role name.
+        """
         return None
 
 
