@@ -22,6 +22,20 @@ from .fake_datacite_client import FakeDataCiteClient
 # If the file path contains "invenio-stats-dashboard", exclude KCWorks custom schemes
 _IS_GENERIC_CONTEXT = "invenio-stats-dashboard" in str(Path(__file__).resolve())
 
+# Shared fixtures ship to dependency suites that do not install `kcworks`.
+try:
+    from kcworks.config.pids import (
+        DATACITE_RETRY_ATTEMPTS,
+        DATACITE_RETRY_BACKOFF_SECONDS,
+    )
+    from kcworks.services.pids.datacite import RetryingDataCitePIDProvider
+
+    _DataCitePIDProvider = RetryingDataCitePIDProvider
+    _HAS_KCWORKS_PIDS = True
+except ImportError:
+    _DataCitePIDProvider = providers.DataCitePIDProvider
+    _HAS_KCWORKS_PIDS = False
+
 
 def is_email(value):
     """Simple email validation function.
@@ -80,8 +94,8 @@ test_config_identifiers = {
     # the one in fake_datacite_client.py borrowed from invenio_rdm_records
     # conflicts with use of requests_mock in test_component
     "RDM_PERSISTENT_IDENTIFIER_PROVIDERS": [
-        # DataCite DOI provider with fake client
-        providers.DataCitePIDProvider(
+        # DataCite DOI provider with fake client (retrying when kcworks is present)
+        _DataCitePIDProvider(
             "datacite",
             client=FakeDataCiteClient("datacite", config_prefix="DATACITE"),
             label=_("DOI"),
@@ -100,8 +114,8 @@ test_config_identifiers = {
         ),
     ],
     "RDM_PARENT_PERSISTENT_IDENTIFIER_PROVIDERS": [
-        # DataCite DOI provider with fake client
-        providers.DataCitePIDProvider(
+        # DataCite DOI provider with fake client (retrying when kcworks is present)
+        _DataCitePIDProvider(
             "datacite",
             client=FakeDataCiteClient("datacite", config_prefix="DATACITE"),
             label=_("DOI"),
@@ -229,3 +243,10 @@ test_config_identifiers.update({
     "DATACITE_PREFIX": "10.17613",
     "DATACITE_TEST_MODE": True,
 })
+
+if _HAS_KCWORKS_PIDS:
+    test_config_identifiers.update({
+        "DATACITE_RETRY_ATTEMPTS": DATACITE_RETRY_ATTEMPTS,
+        "DATACITE_RETRY_BACKOFF_SECONDS": DATACITE_RETRY_BACKOFF_SECONDS,
+    })
+
