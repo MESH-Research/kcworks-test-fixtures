@@ -290,6 +290,7 @@ def minimal_community_factory(
         slug: str | None = None,
         metadata: dict | None = None,
         access: dict | None = None,
+        children: dict | None = None,
         custom_fields: dict | None = None,
         members: dict | None = None,
         mock_search_api: bool = True,
@@ -297,10 +298,24 @@ def minimal_community_factory(
     ) -> Community:
         """Create a minimal community for testing.
 
-        Allows overriding of default metadata, access, and custom fields values.
-        Also allows specifying the members of the community with their roles.
+        Allows overriding of default metadata, access, children, and custom
+        fields values. Also allows specifying the members of the community
+        with their roles.
 
         If no owner is specified, a new user is created and used as the owner.
+
+        Args:
+            owner: User id to own the community; a user is created when omitted.
+            slug: Community slug (default `"my-community"`).
+            metadata: Overrides merged into default community metadata.
+            access: Overrides merged into default access settings.
+            children: Optional top-level `children` payload (for example
+                `{"allow": True}` so the community can be a parent).
+            custom_fields: Overrides merged into custom fields.
+            members: Role name → list of user ids to add after create.
+            mock_search_api: When True, mock Commons Search provisioning if
+                configured.
+            created: Optional created timestamp to set on the community model.
 
         Returns:
             Community: The created community record.
@@ -385,6 +400,8 @@ def minimal_community_factory(
             "metadata": metadata_data,
             "custom_fields": custom_fields_data,
         }
+        if children is not None:
+            community_data["children"] = children
 
         owner_identity = get_identity(current_accounts.datastore.get_user_by_id(owner))
         owner_identity.provides.add(authenticated_user)

@@ -22,7 +22,7 @@ from .fake_datacite_client import FakeDataCiteClient
 # If the file path contains "invenio-stats-dashboard", exclude KCWorks custom schemes
 _IS_GENERIC_CONTEXT = "invenio-stats-dashboard" in str(Path(__file__).resolve())
 
-# Shared fixtures ship to dependency suites that do not install `kcworks`.
+# Fixtures shared with dependency suites that do not install `kcworks`.
 try:
     from kcworks.config.pids import (
         DATACITE_RETRY_ATTEMPTS,
@@ -249,4 +249,3 @@ if _HAS_KCWORKS_PIDS:
         "DATACITE_RETRY_ATTEMPTS": DATACITE_RETRY_ATTEMPTS,
         "DATACITE_RETRY_BACKOFF_SECONDS": DATACITE_RETRY_BACKOFF_SECONDS,
     })
-
