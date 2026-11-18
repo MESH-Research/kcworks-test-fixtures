@@ -25,6 +25,7 @@ from flask_principal import Identity
 from invenio_access.permissions import system_identity
 from invenio_accounts.proxies import current_accounts
 from invenio_rdm_records.proxies import current_rdm_records_service as records_service
+from invenio_rdm_records.records.api import RDMRecord
 from invenio_records_resources.services.records.results import RecordItem
 from invenio_records_resources.services.uow import RecordCommitOp, UnitOfWork
 from invenio_search.proxies import current_search_client
@@ -1981,3 +1982,39 @@ def enhance_metadata_with_funding_and_affiliations(metadata, record_index) -> No
                 },
             }
         ]
+
+
+@pytest.fixture(scope="function")
+def sample_record_with_legacy_date(
+    app,
+    db,
+    search_clear,
+    create_records_custom_fields,
+    minimal_published_record_factory,
+):
+    """Create a sample record with a known created date for testing date updates.
+
+    Yields:
+        dict: Dictionary containing:
+            - id (str): The record ID
+            - legacy_date (str): A test date to update to
+            - current_date (str): The current date
+    """
+    # Create a record with a known creation date for testing
+    test_date = "2020-01-15T10:30:00Z"
+    current_date = arrow.utcnow().isoformat()
+
+    # Create record using factory - the created date will be set to current time
+    record = minimal_published_record_factory()
+    record_id = record.id
+
+    # Ensure the record is indexed and searchable
+    RDMRecord.index.refresh()
+    # Refresh search indices to make the record searchable
+    current_search_client.indices.refresh(index="*rdmrecords*")
+
+    yield {
+        "id": record_id,
+        "legacy_date": test_date,
+        "current_date": current_date,
+    }
