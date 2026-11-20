@@ -56,6 +56,9 @@ from tests.fixtures.vocabularies.funding_and_awards import (
 )
 from tests.fixtures.vocabularies.languages import ensure_languages_vocabulary
 from tests.fixtures.vocabularies.licenses import ensure_licenses_vocabulary
+from tests.fixtures.vocabularies.removal_reasons import (
+    ensure_removal_reasons_vocabulary,
+)
 from tests.fixtures.vocabularies.resource_types import ensure_resource_types_vocabulary
 from tests.fixtures.vocabularies.roles import (
     ensure_contributors_roles_vocabulary,
@@ -193,6 +196,7 @@ def bootstrap_vocabularies(
         ensure_languages_vocabulary(refresh=False)
         ensure_licenses_vocabulary(refresh=False)
         ensure_resource_types_vocabulary(refresh=False)
+        ensure_removal_reasons_vocabulary(refresh=False)
         ensure_creators_roles_vocabulary(refresh=False)
         ensure_contributors_roles_vocabulary(refresh=False)
         ensure_title_types_vocabulary(refresh=False)
