@@ -17,6 +17,8 @@ from flask_principal import Identity, identity_changed
 from invenio_accounts.models import User
 from invenio_accounts.proxies import current_datastore
 from invenio_oauth2server.proxies import current_oauth2server
+from pydantic import BaseModel, ConfigDict
+
 from invenio_remote_user_data_kcworks.types.profiles_api import (
     APIResponse,
     Meta,
@@ -27,7 +29,6 @@ from invenio_remote_user_data_kcworks.utils.broker import extract_bearer_token
 from invenio_remote_user_data_kcworks.utils.static_token import (
     resolve_static_token_route,
 )
-from pydantic import BaseModel, ConfigDict
 
 test_config_idms: dict[str, Any] = {
     "KC_REMOTE_IDPS": ["cilogon"],
